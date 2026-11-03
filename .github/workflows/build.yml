@@ -1,0 +1,98 @@
+# Builds and tests every pull request, every push to main, and on demand.
+#
+# Every action is named by its commit, not by a tag someone can move. The version each SHA was on 2026-11-03 is in the
+# comment beside it. To update one, look up the new version's commit, read what changed, and change both.
+#
+# The simulator is created for this run and named by its UDID in every step, never `booted`.
+name: build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Tools
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # The logic, the id census and the shared sources, on macOS: no simulator.
+      - name: MossgroveKit tests (swift test)
+        run: swift test --package-path MossgroveKit
+
+      - name: Create a simulator for this run
+        id: simulator
+        run: echo "udid=$(scripts/ci-simulator.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Build for testing
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          xcodebuild build-for-testing -project Mossgrove.xcodeproj -scheme Mossgrove \
+            -destination "id=$UDID" -derivedDataPath build/DerivedData
+
+      # First, on the fresh simulator, so Settings shows notifications not yet asked for.
+      - name: Screenshots, light and dark
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          scripts/ci-screenshots.sh "$UDID" light out/screenshots
+          scripts/ci-screenshots.sh "$UDID" dark out/screenshots
+          xcrun simctl ui "$UDID" appearance light
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots
+          path: out/screenshots/
+          if-no-files-found: error
+          retention-days: 30
+
+      # Unit tests inside the app, the id walk (every id in the tree Appium reads) and the flows of scenarios 01-11.
+      - name: Unit tests and XCUITest suite
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
+            -destination "id=$UDID" -derivedDataPath build/DerivedData \
+            -only-testing:MossgroveTests -only-testing:MossgroveUITests/IdWalkTests -only-testing:MossgroveUITests/FlowTests \
+            -resultBundlePath build/results/tests.xcresult
+
+      - name: Build the simulator app (Release, arm64 and x86_64)
+        run: scripts/package-simulator-app.sh "build-${GITHUB_RUN_NUMBER}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mossgrove-ios-simulator
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results
+          path: build/results/
+          retention-days: 7
+
+      - name: Delete the simulator
+        if: always() && steps.simulator.outputs.udid != ''
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          xcrun simctl shutdown "$UDID" || true
+          xcrun simctl delete "$UDID"

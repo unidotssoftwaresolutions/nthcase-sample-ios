@@ -1,0 +1,16 @@
+# Xcode and SwiftPM build output (all builds use -derivedDataPath build/DerivedData)
+build/
+DerivedData/
+dist/
+out/
+MossgroveKit/.build/
+.swiftpm/
+xcuserdata/
+*.xcuserstate
+*.xcresult
+# macOS
+.DS_Store
+# signing material never belongs here: the app ships for the Simulator, unsigned by any certificate
+*.p12
+*.mobileprovision
+*.cer

@@ -1,0 +1,551 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D00000000000000000000060 /* MossgroveKit in Frameworks */ = {isa = PBXBuildFile; productRef = D00000000000000000000070 /* MossgroveKit */; };
+		D00000000000000000000061 /* MossgroveKit in Frameworks */ = {isa = PBXBuildFile; productRef = D00000000000000000000071 /* MossgroveKit */; };
+		D00000000000000000000062 /* test-ids.json in Resources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000021 /* test-ids.json */; };
+		D00000000000000000000063 /* MossgroveKit in Embed Frameworks */ = {isa = PBXBuildFile; productRef = D00000000000000000000070 /* MossgroveKit */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D00000000000000000000091 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D0000000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D00000000000000000000040;
+			remoteInfo = Mossgrove;
+		};
+		D00000000000000000000093 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D0000000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D00000000000000000000040;
+			remoteInfo = Mossgrove;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D00000000000000000000059 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				D00000000000000000000063 /* MossgroveKit in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		D00000000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D00000000000000000000021 /* test-ids.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "test-ids.json"; sourceTree = "<group>"; };
+		D00000000000000000000030 /* Mossgrove.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mossgrove.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D00000000000000000000031 /* MossgroveTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MossgroveTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D00000000000000000000032 /* MossgroveUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MossgroveUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		D00000000000000000000010 /* Mossgrove */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Mossgrove;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000011 /* MossgroveTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MossgroveTests;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000012 /* MossgroveUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MossgroveUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D00000000000000000000051 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D00000000000000000000060 /* MossgroveKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D00000000000000000000054 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D00000000000000000000061 /* MossgroveKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D00000000000000000000057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D0000000000000000000001A = {
+			isa = PBXGroup;
+			children = (
+				D00000000000000000000010 /* Mossgrove */,
+				D00000000000000000000011 /* MossgroveTests */,
+				D00000000000000000000012 /* MossgroveUITests */,
+				D0000000000000000000001C /* Config */,
+				D0000000000000000000001D /* nthcase */,
+				D0000000000000000000002A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D0000000000000000000001C /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				D00000000000000000000020 /* Info.plist */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		D0000000000000000000001D /* nthcase */ = {
+			isa = PBXGroup;
+			children = (
+				D00000000000000000000021 /* test-ids.json */,
+			);
+			path = nthcase;
+			sourceTree = "<group>";
+		};
+		D0000000000000000000002A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D00000000000000000000030 /* Mossgrove.app */,
+				D00000000000000000000031 /* MossgroveTests.xctest */,
+				D00000000000000000000032 /* MossgroveUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D00000000000000000000040 /* Mossgrove */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D000000000000000000000A3 /* Build configuration list for PBXNativeTarget "Mossgrove" */;
+			buildPhases = (
+				D00000000000000000000050 /* Sources */,
+				D00000000000000000000051 /* Frameworks */,
+				D00000000000000000000052 /* Resources */,
+				D00000000000000000000059 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D00000000000000000000010 /* Mossgrove */,
+			);
+			name = Mossgrove;
+			packageProductDependencies = (
+				D00000000000000000000070 /* MossgroveKit */,
+			);
+			productName = Mossgrove;
+			productReference = D00000000000000000000030 /* Mossgrove.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D00000000000000000000041 /* MossgroveTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D000000000000000000000A6 /* Build configuration list for PBXNativeTarget "MossgroveTests" */;
+			buildPhases = (
+				D00000000000000000000053 /* Sources */,
+				D00000000000000000000054 /* Frameworks */,
+				D00000000000000000000055 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D00000000000000000000090 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D00000000000000000000011 /* MossgroveTests */,
+			);
+			name = MossgroveTests;
+			packageProductDependencies = (
+				D00000000000000000000071 /* MossgroveKit */,
+			);
+			productName = MossgroveTests;
+			productReference = D00000000000000000000031 /* MossgroveTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D00000000000000000000042 /* MossgroveUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D000000000000000000000A9 /* Build configuration list for PBXNativeTarget "MossgroveUITests" */;
+			buildPhases = (
+				D00000000000000000000056 /* Sources */,
+				D00000000000000000000057 /* Frameworks */,
+				D00000000000000000000058 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D00000000000000000000092 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D00000000000000000000012 /* MossgroveUITests */,
+			);
+			name = MossgroveUITests;
+			productName = MossgroveUITests;
+			productReference = D00000000000000000000032 /* MossgroveUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D0000000000000000000000A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					D00000000000000000000040 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					D00000000000000000000041 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = D00000000000000000000040;
+					};
+					D00000000000000000000042 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = D00000000000000000000040;
+					};
+				};
+			};
+			buildConfigurationList = D000000000000000000000A0 /* Build configuration list for PBXProject "Mossgrove" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D0000000000000000000001A;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D00000000000000000000080 /* XCLocalSwiftPackageReference "MossgroveKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D0000000000000000000002A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D00000000000000000000040 /* Mossgrove */,
+				D00000000000000000000041 /* MossgroveTests */,
+				D00000000000000000000042 /* MossgroveUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D00000000000000000000052 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D00000000000000000000055 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D00000000000000000000058 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D00000000000000000000062 /* test-ids.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D00000000000000000000050 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D00000000000000000000053 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D00000000000000000000056 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D00000000000000000000090 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D00000000000000000000040 /* Mossgrove */;
+			targetProxy = D00000000000000000000091 /* PBXContainerItemProxy */;
+		};
+		D00000000000000000000092 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D00000000000000000000040 /* Mossgrove */;
+			targetProxy = D00000000000000000000093 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		D000000000000000000000A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D000000000000000000000A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D000000000000000000000A4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Mossgrove;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nthcase.sample;
+				PRODUCT_NAME = Mossgrove;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D000000000000000000000A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Mossgrove;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nthcase.sample;
+				PRODUCT_NAME = Mossgrove;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D000000000000000000000A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nthcase.sample.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mossgrove.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Mossgrove";
+			};
+			name = Debug;
+		};
+		D000000000000000000000A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nthcase.sample.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mossgrove.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Mossgrove";
+			};
+			name = Release;
+		};
+		D000000000000000000000AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nthcase.sample.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Mossgrove;
+			};
+			name = Debug;
+		};
+		D000000000000000000000AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nthcase.sample.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Mossgrove;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D000000000000000000000A0 /* Build configuration list for PBXProject "Mossgrove" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D000000000000000000000A1 /* Debug */,
+				D000000000000000000000A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D000000000000000000000A3 /* Build configuration list for PBXNativeTarget "Mossgrove" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D000000000000000000000A4 /* Debug */,
+				D000000000000000000000A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D000000000000000000000A6 /* Build configuration list for PBXNativeTarget "MossgroveTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D000000000000000000000A7 /* Debug */,
+				D000000000000000000000A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D000000000000000000000A9 /* Build configuration list for PBXNativeTarget "MossgroveUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D000000000000000000000AA /* Debug */,
+				D000000000000000000000AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		D00000000000000000000080 /* XCLocalSwiftPackageReference "MossgroveKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MossgroveKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D00000000000000000000070 /* MossgroveKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D00000000000000000000080 /* XCLocalSwiftPackageReference "MossgroveKit" */;
+			productName = MossgroveKit;
+		};
+		D00000000000000000000071 /* MossgroveKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D00000000000000000000080 /* XCLocalSwiftPackageReference "MossgroveKit" */;
+			productName = MossgroveKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = D0000000000000000000000A /* Project object */;
+}

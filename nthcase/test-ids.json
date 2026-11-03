@@ -1,0 +1,890 @@
+{
+ "spec": "1.0",
+ "app": "Mossgrove",
+ "about": "Every test id of the Mossgrove sample apps (SPEC.md §Test ids). One list for all five frameworks. {id} is an item number 1-40, {n} a slot (1-5) or order number, {key} an aisle key (kitchen, desk, garden, home). The gift-cards screen has no ids by design. web_* ids live in the bundled HTML page, not in native views.",
+ "pattern": "^[a-z][a-z0-9_]*$",
+ "ids": [
+  {
+   "id": "nav_shop",
+   "screen": "chrome",
+   "element": "Bottom bar: Shop tab",
+   "when": "tabs"
+  },
+  {
+   "id": "nav_cart",
+   "screen": "chrome",
+   "element": "Bottom bar: Cart tab. Its accessible label says the count: \"Cart, 2 items\"",
+   "when": "tabs"
+  },
+  {
+   "id": "nav_lab",
+   "screen": "chrome",
+   "element": "Bottom bar: Lab tab",
+   "when": "tabs"
+  },
+  {
+   "id": "nav_settings",
+   "screen": "chrome",
+   "element": "Bottom bar: Settings tab",
+   "when": "tabs"
+  },
+  {
+   "id": "top_bar_title",
+   "screen": "chrome",
+   "element": "Top app bar: screen title",
+   "when": "screens with a top bar"
+  },
+  {
+   "id": "top_bar_back",
+   "screen": "chrome",
+   "element": "Top app bar: Back",
+   "when": "screens below a tab"
+  },
+  {
+   "id": "snackbar",
+   "screen": "chrome",
+   "element": "Snackbar",
+   "when": "after Add to cart, Place order, Join, refresh"
+  },
+  {
+   "id": "snackbar_text",
+   "screen": "chrome",
+   "element": "Snackbar: message",
+   "when": "snackbar"
+  },
+  {
+   "id": "snackbar_action",
+   "screen": "chrome",
+   "element": "Snackbar: action (View cart, View orders)",
+   "when": "snackbar with an action"
+  },
+  {
+   "id": "dialog",
+   "screen": "chrome",
+   "element": "Modal dialog",
+   "when": "checkout confirmation"
+  },
+  {
+   "id": "dialog_title",
+   "screen": "chrome",
+   "element": "Dialog: title",
+   "when": "dialog"
+  },
+  {
+   "id": "dialog_text",
+   "screen": "chrome",
+   "element": "Dialog: body",
+   "when": "dialog"
+  },
+  {
+   "id": "dialog_confirm",
+   "screen": "chrome",
+   "element": "Dialog: confirm (Place order)",
+   "when": "dialog"
+  },
+  {
+   "id": "dialog_dismiss",
+   "screen": "chrome",
+   "element": "Dialog: Cancel",
+   "when": "dialog"
+  },
+  {
+   "id": "signin_screen",
+   "screen": "signin",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "signin_email",
+   "screen": "signin",
+   "element": "Email field",
+   "when": "shown"
+  },
+  {
+   "id": "signin_password",
+   "screen": "signin",
+   "element": "Password field",
+   "when": "shown"
+  },
+  {
+   "id": "signin_password_toggle",
+   "screen": "signin",
+   "element": "Show / hide password",
+   "when": "shown"
+  },
+  {
+   "id": "signin_submit",
+   "screen": "signin",
+   "element": "Sign in button",
+   "when": "shown"
+  },
+  {
+   "id": "signin_error",
+   "screen": "signin",
+   "element": "Error message",
+   "when": "after a refused sign-in"
+  },
+  {
+   "id": "signin_test_account",
+   "screen": "signin",
+   "element": "Test account card",
+   "when": "shown"
+  },
+  {
+   "id": "signin_use_test_account",
+   "screen": "signin",
+   "element": "Use test account (fills both fields)",
+   "when": "shown"
+  },
+  {
+   "id": "shop_screen",
+   "screen": "shop",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "shop_search",
+   "screen": "shop",
+   "element": "Search field",
+   "when": "shown"
+  },
+  {
+   "id": "shop_search_clear",
+   "screen": "shop",
+   "element": "Clear search",
+   "when": "search has text"
+  },
+  {
+   "id": "shop_count",
+   "screen": "shop",
+   "element": "Count line (40 drawers · No. 001–040 / 3 of 40 drawers)",
+   "when": "loaded"
+  },
+  {
+   "id": "shop_list",
+   "screen": "shop",
+   "element": "The list (scrolls; pull to refresh)",
+   "when": "loaded"
+  },
+  {
+   "id": "shop_item_{id}",
+   "screen": "shop",
+   "element": "One row per item, id 1–40",
+   "when": "loaded"
+  },
+  {
+   "id": "shop_loading",
+   "screen": "shop",
+   "element": "Spinner",
+   "when": "Slow loading on"
+  },
+  {
+   "id": "shop_error",
+   "screen": "shop",
+   "element": "Error state",
+   "when": "Fail the first load on, first load"
+  },
+  {
+   "id": "shop_retry",
+   "screen": "shop",
+   "element": "Error state: Try again",
+   "when": "shop error"
+  },
+  {
+   "id": "shop_empty",
+   "screen": "shop",
+   "element": "Empty state (no match)",
+   "when": "search matches nothing"
+  },
+  {
+   "id": "shop_empty_action",
+   "screen": "shop",
+   "element": "Empty state: Clear search",
+   "when": "shop empty"
+  },
+  {
+   "id": "item_screen",
+   "screen": "item",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "item_image",
+   "screen": "item",
+   "element": "The item's drawing",
+   "when": "known item"
+  },
+  {
+   "id": "item_number",
+   "screen": "item",
+   "element": "No. 007",
+   "when": "known item"
+  },
+  {
+   "id": "item_name",
+   "screen": "item",
+   "element": "Name",
+   "when": "known item"
+  },
+  {
+   "id": "item_price",
+   "screen": "item",
+   "element": "Price",
+   "when": "known item"
+  },
+  {
+   "id": "item_description",
+   "screen": "item",
+   "element": "Description",
+   "when": "known item"
+  },
+  {
+   "id": "item_qty_decrease",
+   "screen": "item",
+   "element": "Stepper: −",
+   "when": "known item"
+  },
+  {
+   "id": "item_qty_value",
+   "screen": "item",
+   "element": "Stepper: value (1–9)",
+   "when": "known item"
+  },
+  {
+   "id": "item_qty_increase",
+   "screen": "item",
+   "element": "Stepper: +",
+   "when": "known item"
+  },
+  {
+   "id": "item_add_to_cart",
+   "screen": "item",
+   "element": "Add to cart",
+   "when": "known item"
+  },
+  {
+   "id": "item_not_found",
+   "screen": "item",
+   "element": "Not-found state",
+   "when": "unknown id (deep link)"
+  },
+  {
+   "id": "item_not_found_action",
+   "screen": "item",
+   "element": "Not-found: Back to the shop",
+   "when": "unknown id"
+  },
+  {
+   "id": "cart_screen",
+   "screen": "cart",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "cart_list",
+   "screen": "cart",
+   "element": "The lines",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_line_{id}",
+   "screen": "cart",
+   "element": "One line per item",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_line_decrease_{id}",
+   "screen": "cart",
+   "element": "Line stepper: −",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_line_qty_{id}",
+   "screen": "cart",
+   "element": "Line stepper: value",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_line_increase_{id}",
+   "screen": "cart",
+   "element": "Line stepper: +",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_line_remove_{id}",
+   "screen": "cart",
+   "element": "Remove the line",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_line_total_{id}",
+   "screen": "cart",
+   "element": "Line total",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_total",
+   "screen": "cart",
+   "element": "Total",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_checkout",
+   "screen": "cart",
+   "element": "Check out (opens the dialog)",
+   "when": "cart has items"
+  },
+  {
+   "id": "cart_empty",
+   "screen": "cart",
+   "element": "Empty state",
+   "when": "cart empty"
+  },
+  {
+   "id": "cart_empty_action",
+   "screen": "cart",
+   "element": "Empty state: Browse the shop",
+   "when": "cart empty"
+  },
+  {
+   "id": "lab_screen",
+   "screen": "lab",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "lab_form",
+   "screen": "lab",
+   "element": "Opens Join the club (form)",
+   "when": "shown"
+  },
+  {
+   "id": "lab_gestures",
+   "screen": "lab",
+   "element": "Opens Gestures",
+   "when": "shown"
+  },
+  {
+   "id": "lab_webview",
+   "screen": "lab",
+   "element": "Opens Care guide (web view)",
+   "when": "shown"
+  },
+  {
+   "id": "lab_slow",
+   "screen": "lab",
+   "element": "Opens Delivery slots (slow screen)",
+   "when": "shown"
+  },
+  {
+   "id": "lab_orders",
+   "screen": "lab",
+   "element": "Opens Orders (empty and error states)",
+   "when": "shown"
+  },
+  {
+   "id": "lab_gift_cards",
+   "screen": "lab",
+   "element": "Opens Gift cards (no ids)",
+   "when": "shown"
+  },
+  {
+   "id": "form_screen",
+   "screen": "form",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "form_name",
+   "screen": "form",
+   "element": "Full name (text)",
+   "when": "shown"
+  },
+  {
+   "id": "form_name_error",
+   "screen": "form",
+   "element": "Name error",
+   "when": "after Join, invalid"
+  },
+  {
+   "id": "form_email",
+   "screen": "form",
+   "element": "Email",
+   "when": "shown"
+  },
+  {
+   "id": "form_email_error",
+   "screen": "form",
+   "element": "Email error",
+   "when": "after Join, invalid"
+  },
+  {
+   "id": "form_age",
+   "screen": "form",
+   "element": "Age (number)",
+   "when": "shown"
+  },
+  {
+   "id": "form_age_error",
+   "screen": "form",
+   "element": "Age error",
+   "when": "after Join, invalid"
+  },
+  {
+   "id": "form_password",
+   "screen": "form",
+   "element": "Password",
+   "when": "shown"
+  },
+  {
+   "id": "form_password_toggle",
+   "screen": "form",
+   "element": "Show / hide password",
+   "when": "shown"
+  },
+  {
+   "id": "form_password_error",
+   "screen": "form",
+   "element": "Password error",
+   "when": "after Join, invalid"
+  },
+  {
+   "id": "form_category",
+   "screen": "form",
+   "element": "Favourite aisle (dropdown)",
+   "when": "shown"
+  },
+  {
+   "id": "form_category_error",
+   "screen": "form",
+   "element": "Aisle error",
+   "when": "after Join, invalid"
+  },
+  {
+   "id": "form_category_option_{key}",
+   "screen": "form",
+   "element": "Dropdown option: kitchen, desk, garden, home",
+   "when": "dropdown open"
+  },
+  {
+   "id": "form_date",
+   "screen": "form",
+   "element": "Opens the date picker",
+   "when": "shown"
+  },
+  {
+   "id": "form_date_error",
+   "screen": "form",
+   "element": "Date error",
+   "when": "after Join, invalid"
+  },
+  {
+   "id": "form_date_picker",
+   "screen": "form",
+   "element": "The date picker",
+   "when": "date picker open"
+  },
+  {
+   "id": "form_date_confirm",
+   "screen": "form",
+   "element": "Date picker: OK",
+   "when": "date picker open"
+  },
+  {
+   "id": "form_date_cancel",
+   "screen": "form",
+   "element": "Date picker: Cancel",
+   "when": "date picker open"
+  },
+  {
+   "id": "form_newsletter",
+   "screen": "form",
+   "element": "Newsletter (switch)",
+   "when": "shown"
+  },
+  {
+   "id": "form_budget",
+   "screen": "form",
+   "element": "Monthly budget (slider, $0–200, $10 steps)",
+   "when": "shown"
+  },
+  {
+   "id": "form_budget_value",
+   "screen": "form",
+   "element": "Budget value ($50)",
+   "when": "shown"
+  },
+  {
+   "id": "form_terms",
+   "screen": "form",
+   "element": "Accept the terms (checkbox)",
+   "when": "shown"
+  },
+  {
+   "id": "form_terms_error",
+   "screen": "form",
+   "element": "Terms error",
+   "when": "after Join, invalid"
+  },
+  {
+   "id": "form_submit",
+   "screen": "form",
+   "element": "Join",
+   "when": "shown"
+  },
+  {
+   "id": "form_result",
+   "screen": "form",
+   "element": "Welcome card",
+   "when": "after a valid Join"
+  },
+  {
+   "id": "gestures_screen",
+   "screen": "gestures",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_status",
+   "screen": "gestures",
+   "element": "Status line: the last gesture",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_orientation",
+   "screen": "gestures",
+   "element": "Portrait / Landscape",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_tap",
+   "screen": "gestures",
+   "element": "Tap pad",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_tap_count",
+   "screen": "gestures",
+   "element": "Taps: N",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_double_tap",
+   "screen": "gestures",
+   "element": "Double-tap pad",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_long_press",
+   "screen": "gestures",
+   "element": "Long-press pad",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_swipe",
+   "screen": "gestures",
+   "element": "Swipe pad (four directions)",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_drag_source",
+   "screen": "gestures",
+   "element": "Draggable label No. 007",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_drop_target",
+   "screen": "gestures",
+   "element": "The drawer to drop it on",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_pinch",
+   "screen": "gestures",
+   "element": "Pinch pad",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_zoom_value",
+   "screen": "gestures",
+   "element": "Zoom 1.0×",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_rotate",
+   "screen": "gestures",
+   "element": "Two-finger rotate pad",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_rotation_value",
+   "screen": "gestures",
+   "element": "Rotation 0°",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_scroll",
+   "screen": "gestures",
+   "element": "The scrolling column",
+   "when": "shown"
+  },
+  {
+   "id": "gestures_scroll_target",
+   "screen": "gestures",
+   "element": "Open the bottom drawer (below the fold)",
+   "when": "after scrolling"
+  },
+  {
+   "id": "webview_screen",
+   "screen": "webview",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "webview",
+   "screen": "webview",
+   "element": "The WebView",
+   "when": "shown"
+  },
+  {
+   "id": "webview_status",
+   "screen": "webview",
+   "element": "Loading / Care guide loaded",
+   "when": "shown"
+  },
+  {
+   "id": "web_title",
+   "screen": "webview",
+   "element": "Page: heading (HTML id + data-testid)",
+   "when": "page loaded"
+  },
+  {
+   "id": "web_more",
+   "screen": "webview",
+   "element": "Page: Jump to washing link",
+   "when": "page loaded"
+  },
+  {
+   "id": "web_form",
+   "screen": "webview",
+   "element": "Page: the form",
+   "when": "page loaded"
+  },
+  {
+   "id": "web_name",
+   "screen": "webview",
+   "element": "Page: Your name",
+   "when": "page loaded"
+  },
+  {
+   "id": "web_frequency",
+   "screen": "webview",
+   "element": "Page: Remind me (select)",
+   "when": "page loaded"
+  },
+  {
+   "id": "web_agree",
+   "screen": "webview",
+   "element": "Page: Email me the guide (checkbox)",
+   "when": "page loaded"
+  },
+  {
+   "id": "web_submit",
+   "screen": "webview",
+   "element": "Page: Save",
+   "when": "page loaded"
+  },
+  {
+   "id": "web_result",
+   "screen": "webview",
+   "element": "Page: result line",
+   "when": "page loaded"
+  },
+  {
+   "id": "web_washing",
+   "screen": "webview",
+   "element": "Page: Washing heading (far below)",
+   "when": "page loaded"
+  },
+  {
+   "id": "slow_screen",
+   "screen": "slow",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "slow_loading",
+   "screen": "slow",
+   "element": "Spinner, 3 s",
+   "when": "first 3 s"
+  },
+  {
+   "id": "slow_content",
+   "screen": "slow",
+   "element": "The slots",
+   "when": "after 3 s"
+  },
+  {
+   "id": "slow_slot_{n}",
+   "screen": "slow",
+   "element": "Slot 1–5",
+   "when": "after 3 s"
+  },
+  {
+   "id": "slow_reload",
+   "screen": "slow",
+   "element": "Reload (3 s again)",
+   "when": "after 3 s"
+  },
+  {
+   "id": "orders_screen",
+   "screen": "orders",
+   "element": "Screen root",
+   "when": "shown"
+  },
+  {
+   "id": "orders_loading",
+   "screen": "orders",
+   "element": "Spinner",
+   "when": "Slow loading on"
+  },
+  {
+   "id": "orders_empty",
+   "screen": "orders",
+   "element": "Empty state: No orders yet",
+   "when": "no orders"
+  },
+  {
+   "id": "orders_empty_action",
+   "screen": "orders",
+   "element": "Empty state: Start shopping",
+   "when": "no orders"
+  },
+  {
+   "id": "orders_error",
+   "screen": "orders",
+   "element": "Error state",
+   "when": "Fail the first load on, first load"
+  },
+  {
+   "id": "orders_retry",
+   "screen": "orders",
+   "element": "Error state: Try again",
+   "when": "orders error"
+  },
+  {
+   "id": "orders_list",
+   "screen": "orders",
+   "element": "The orders",
+   "when": "after an order"
+  },
+  {
+   "id": "orders_row_{n}",
+   "screen": "orders",
+   "element": "Order N",
+   "when": "after an order"
+  },
+  {
+   "id": "settings_screen",
+   "screen": "settings",
+   "element": "Screen root (XML)",
+   "when": "shown"
+  },
+  {
+   "id": "settings_account_email",
+   "screen": "settings",
+   "element": "Signed-in email",
+   "when": "shown"
+  },
+  {
+   "id": "settings_orders",
+   "screen": "settings",
+   "element": "Order history",
+   "when": "shown"
+  },
+  {
+   "id": "settings_sign_out",
+   "screen": "settings",
+   "element": "Sign out",
+   "when": "shown"
+  },
+  {
+   "id": "settings_theme",
+   "screen": "settings",
+   "element": "Theme (radio group)",
+   "when": "shown"
+  },
+  {
+   "id": "settings_theme_system",
+   "screen": "settings",
+   "element": "Theme: Follow the system",
+   "when": "shown"
+  },
+  {
+   "id": "settings_theme_light",
+   "screen": "settings",
+   "element": "Theme: Light",
+   "when": "shown"
+  },
+  {
+   "id": "settings_theme_dark",
+   "screen": "settings",
+   "element": "Theme: Dark",
+   "when": "shown"
+  },
+  {
+   "id": "settings_notifications",
+   "screen": "settings",
+   "element": "Order updates (switch; asks for the notification permission)",
+   "when": "shown"
+  },
+  {
+   "id": "settings_notifications_status",
+   "screen": "settings",
+   "element": "Notification status line",
+   "when": "shown"
+  },
+  {
+   "id": "settings_send_notification",
+   "screen": "settings",
+   "element": "Send a test notification",
+   "when": "shown"
+  },
+  {
+   "id": "settings_slow_loading",
+   "screen": "settings",
+   "element": "Slow loading (switch)",
+   "when": "shown"
+  },
+  {
+   "id": "settings_fail_loading",
+   "screen": "settings",
+   "element": "Fail the first load (switch)",
+   "when": "shown"
+  },
+  {
+   "id": "settings_reset",
+   "screen": "settings",
+   "element": "Empty the cart and orders (opens a dialog)",
+   "when": "shown"
+  },
+  {
+   "id": "settings_reset_confirm",
+   "screen": "settings",
+   "element": "Reset dialog: Empty",
+   "when": "reset dialog"
+  },
+  {
+   "id": "settings_reset_cancel",
+   "screen": "settings",
+   "element": "Reset dialog: Cancel",
+   "when": "reset dialog"
+  },
+  {
+   "id": "settings_version",
+   "screen": "settings",
+   "element": "Version line",
+   "when": "shown"
+  }
+ ]
+}

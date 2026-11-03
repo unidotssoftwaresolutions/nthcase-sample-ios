@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="432" height="432">
+  <!-- The Mossgrove mark: a drawer front, a brass label holder, a pull. Drawn for this app. -->
+  <rect width="108" height="108" fill="#2E5E55"/>
+  <path fill="#F7F9F7" d="M32 34h44a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H32a4 4 0 0 1-4-4V38a4 4 0 0 1 4-4z"/>
+  <path fill="none" stroke="#B8893A" stroke-width="3" d="M42 42h24v12H42z"/>
+  <path fill="none" stroke="#2E5E55" stroke-width="4" stroke-linecap="round" d="M46 64h16"/>
+</svg>

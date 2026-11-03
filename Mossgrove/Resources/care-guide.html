@@ -1,0 +1,68 @@
+<!doctype html>
+<!-- The Mossgrove care guide: the page every Mossgrove app bundles for its web view (SPEC.md §Web view).
+     It loads nothing: no fonts, images or scripts from anywhere, and the policy below forbids it. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Care guide</title>
+<style>
+  :root { --ink: #181C1B; --muted: #3F4946; --ground: #F7F9F7; --line: #BFC9C5; --primary: #2E5E55; --on-primary: #FFFFFF; --brass: #7A5A1C; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #E0E3E1; --muted: #BFC9C5; --ground: #101413; --line: #3F4946; --primary: #95D1C2; --on-primary: #003730; --brass: #EEC06E; }
+  }
+  body { margin: 0; padding: 16px; font: 16px/1.5 system-ui, sans-serif; color: var(--ink); background: var(--ground); }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 28px 0 8px; }
+  .number { font-family: monospace; color: var(--brass); }
+  p, li { color: var(--muted); max-width: 60ch; }
+  label { display: block; margin: 16px 0 4px; font-weight: 600; }
+  input[type=text], select { box-sizing: border-box; width: 100%; min-height: 48px; padding: 8px 12px; font: inherit;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--line); border-radius: 8px; }
+  .check { display: flex; align-items: center; gap: 12px; min-height: 48px; font-weight: 400; }
+  .check input { width: 24px; height: 24px; }
+  button { min-height: 48px; padding: 0 24px; margin-top: 16px; font: inherit; font-weight: 600; border: 0; border-radius: 24px;
+    color: var(--on-primary); background: var(--primary); }
+  output { display: block; margin-top: 16px; font-weight: 600; min-height: 1.5em; }
+  a { color: var(--primary); }
+  .spacer { height: 900px; }
+</style>
+</head>
+<body>
+  <h1 id="web_title" data-testid="web_title">Care guide</h1>
+  <p><span class="number">No. 001</span> Stoneware Mug, and everything else in the kitchen aisle.</p>
+  <p><a id="web_more" data-testid="web_more" href="#web_washing">Jump to washing</a></p>
+
+  <h2>Ask for a reminder</h2>
+  <form id="web_form" data-testid="web_form">
+    <label for="web_name">Your name</label>
+    <input id="web_name" data-testid="web_name" type="text" autocomplete="off">
+    <label for="web_frequency">Remind me</label>
+    <select id="web_frequency" data-testid="web_frequency">
+      <option value="weekly">Every week</option>
+      <option value="monthly" selected>Every month</option>
+      <option value="never">Never</option>
+    </select>
+    <label class="check"><input id="web_agree" data-testid="web_agree" type="checkbox"> Email me the guide</label>
+    <button id="web_submit" data-testid="web_submit" type="submit">Save</button>
+    <output id="web_result" data-testid="web_result" aria-live="polite"></output>
+  </form>
+
+  <div class="spacer"></div>
+  <h2 id="web_washing" data-testid="web_washing">Washing</h2>
+  <p>Stoneware goes in the dishwasher. Wood does not: wipe it, dry it, and oil it once a month.</p>
+
+  <script>
+    document.getElementById('web_form').addEventListener('submit', function (event) {
+      event.preventDefault();
+      var name = document.getElementById('web_name').value.trim();
+      var how = document.getElementById('web_frequency');
+      var label = how.options[how.selectedIndex].text.toLowerCase();
+      document.getElementById('web_result').textContent = name
+        ? 'Saved, ' + name + '. We will remind you ' + label + '.'
+        : 'Enter your name first.';
+    });
+  </script>
+</body>
+</html>
