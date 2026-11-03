@@ -26,6 +26,12 @@ read -r runtime devicetype label <<<"$pick"
 echo "Simulator: $label" >&2
 
 udid=$(xcrun simctl create "Mossgrove CI" "$devicetype" "$runtime")
+# No hardware keyboard, before the first boot: typing goes through the on-screen keyboard, as on a phone and as on
+# NthCase's simulators (Appium's XCUITest driver leaves the hardware keyboard off unless asked). The Simulator reads
+# this per device, and the global key covers a Simulator that ignores the per-device one.
+defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+defaults write com.apple.iphonesimulator DevicePreferences -dict-add "$udid" \
+  '<dict><key>ConnectHardwareKeyboard</key><false/></dict>'
 xcrun simctl bootstatus "$udid" -b >&2
 # The same status bar in every screenshot.
 xcrun simctl status_bar "$udid" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \

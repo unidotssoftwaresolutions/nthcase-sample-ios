@@ -196,31 +196,39 @@ final class IdWalkTests: XCTestCase {
 
     // MARK: Walking
 
+    /// Walks every step, whatever an earlier one found, and checks every id of every step. The walk fails once, at
+    /// its end, with every missing id and every id outside the list, screen by screen; each step's own activity
+    /// carries its screenshot and what it found.
     private func walk(_ steps: [Step]) {
         continueAfterFailure = true
         let app = XCUIApplication()
         app.launch()
+        var problems: [String] = []
         for step in steps {
             XCTContext.runActivity(named: step.name) { activity in
                 step.act(app)
-                for id in step.ids where !app.id(id).waitForExistence(timeout: 8) {
-                    XCTFail("\(id) is not in the tree on \(step.name)")
-                }
+                let missing = step.ids.filter { !app.id($0).waitForExistence(timeout: 8) }
                 let tree = app.identifiers()
                 // An id-shaped name that is not in the list would be an id outside the spec.
                 let outside = tree.filter { id in
                     looksLikeASpecId(id) && !SpecIds.shared.ids.contains { SpecIds.matches(id, $0.id) }
                 }
-                XCTAssertEqual(outside, [], "ids outside the list on \(step.name)")
                 let repeated = step.ids.filter { id in tree.filter { $0 == id }.count > 1 }
-                if !repeated.isEmpty {
-                    XCTContext.runActivity(named: "More than one element named \(repeated)") { _ in }
-                }
+                if !missing.isEmpty { problems.append("\(step.name): not in the tree: \(missing.joined(separator: " "))") }
+                if !outside.isEmpty { problems.append("\(step.name): outside the list: \(outside.joined(separator: " "))") }
+                let found = "\(step.ids.count - missing.count) of \(step.ids.count) ids"
+                    + (missing.isEmpty ? "" : "; missing \(missing.joined(separator: " "))")
+                    + (outside.isEmpty ? "" : "; outside the list \(outside.joined(separator: " "))")
+                    + (repeated.isEmpty ? "" : "; more than one element named \(repeated.joined(separator: " "))")
+                XCTContext.runActivity(named: found) { _ in }
                 let shot = XCTAttachment(screenshot: app.screenshot())
                 shot.name = step.name
-                shot.lifetime = .deleteOnSuccess
+                shot.lifetime = missing.isEmpty && outside.isEmpty ? .deleteOnSuccess : .keepAlways
                 activity.add(shot)
             }
+        }
+        if !problems.isEmpty {
+            XCTFail("\(problems.count) screen problem(s) on this walk:\n" + problems.joined(separator: "\n"))
         }
     }
 

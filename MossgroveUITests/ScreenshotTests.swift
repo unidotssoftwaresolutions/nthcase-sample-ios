@@ -5,10 +5,13 @@ import XCTest
 ///
 /// With `MOSSGROVE_SCREENSHOTS` set (CI passes `TEST_RUNNER_MOSSGROVE_SCREENSHOTS`), the pictures are written there as
 /// PNG files; they are always kept as attachments of the result bundle too.
+///
+/// The 24 screens are eight tests, each from a cold start, so a screen that fails costs only its own group: the run
+/// still makes every other picture. `scripts/ci-screenshots.sh` checks that all 24 files are there and names any
+/// that is not.
 final class ScreenshotTests: XCTestCase {
     private var app: XCUIApplication!
     private var folder: URL?
-    private var taken: [String] = []
 
     override func setUp() {
         continueAfterFailure = false
@@ -30,14 +33,13 @@ final class ScreenshotTests: XCTestCase {
         if let folder {
             XCTAssertNoThrow(try screenshot.pngRepresentation.write(to: folder.appendingPathComponent("\(name).png")))
         }
-        taken.append(name)
     }
 
     private func wait(_ id: String, _ timeout: TimeInterval = 8) {
         XCTAssertTrue(app.id(id).waitForExistence(timeout: timeout), "\(id) did not appear")
     }
 
-    func testEveryScreen() {
+    func test01SignIn() {
         wait("signin_screen", 15)
         shot("01-sign-in")
 
@@ -46,9 +48,10 @@ final class ScreenshotTests: XCTestCase {
         app.id("signin_submit").tap()
         wait("signin_error")
         shot("02-sign-in-error")
+    }
 
-        app.id("signin_use_test_account").tap()
-        app.id("signin_submit").tap()
+    func test02Shop() {
+        app.signIn()
         wait("shop_item_1")
         shot("03-shop")
 
@@ -59,8 +62,10 @@ final class ScreenshotTests: XCTestCase {
         app.id("shop_search").replace(with: "velvet\n")
         wait("shop_empty")
         shot("05-shop-no-match")
+    }
 
-        app.id("shop_empty_action").tap()
+    func test03ItemCartAndOrders() {
+        app.signIn()
         app.id("shop_item_1").tap()
         wait("item_add_to_cart")
         shot("06-item")
@@ -82,6 +87,14 @@ final class ScreenshotTests: XCTestCase {
         wait("cart_empty")
         shot("10-cart-empty")
 
+        // "View orders" in the snackbar: the same Orders screen the Lab opens, with Order 1 in it
+        app.id("snackbar_action").tap()
+        wait("orders_row_1")
+        shot("18-orders")
+    }
+
+    func test04Form() {
+        app.signIn()
         app.openTab(2, "nav_lab")
         wait("lab_gift_cards")
         shot("11-lab")
@@ -106,9 +119,11 @@ final class ScreenshotTests: XCTestCase {
         wait("form_result")
         app.scrollTo(app.id("form_result"))
         shot("13-form-done")
+    }
 
-        app.back()
-        app.id("lab_gestures").tap()
+    func test05LabBenches() {
+        app.signIn()
+        app.openLab("lab_gestures")
         wait("gestures_status")
         shot("14-gestures")
 
@@ -124,13 +139,10 @@ final class ScreenshotTests: XCTestCase {
 
         wait("slow_content")
         shot("17-slow-done")
+    }
 
-        app.back()
-        app.id("lab_orders").tap()
-        wait("orders_row_1")
-        shot("18-orders")
-
-        app.back()
+    func test06SettingsAndOrderStates() {
+        app.signIn()
         app.openTab(3, "nav_settings")
         wait("settings_theme")
         shot("22-settings")
@@ -149,21 +161,22 @@ final class ScreenshotTests: XCTestCase {
         app.id("orders_retry").tap()
         wait("orders_empty")
         shot("19-orders-empty")
+    }
 
-        app.back()
-        app.openTab(3, "nav_settings")
-        app.scrollTo(app.id("settings_fail_loading")).set(false)
+    func test07GiftCards() {
+        app.signIn()
         app.openLab("lab_gift_cards")
         XCTAssertTrue(app.text("Check a balance").waitForExistence(timeout: 5))
         app.buttons.matching(NSPredicate(format: "label == 'Choose'")).allElementsBoundByIndex
             .min { $0.frame.minX < $1.frame.minX }?.tap()
         XCTAssertTrue(app.text("with the Fern design").waitForExistence(timeout: 5))
         shot("21-gift-cards")
+    }
 
+    func test08DeepLinkUnknown() {
+        app.signIn()
         app.open(URL(string: "nthcase-sample://item/999")!)
         wait("item_not_found")
         shot("24-deep-link-unknown")
-
-        XCTAssertEqual(taken.count, 24)
     }
 }

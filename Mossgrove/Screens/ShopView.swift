@@ -6,30 +6,32 @@ struct ShopView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
     @State private var load = LoadModel()
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         let results = Catalog.search(query)
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(Texts.appName).font(.largeTitle.weight(.bold)).accessibilityAddTraits(.isHeader)
-                HStack(spacing: 8) {
-                    Art.icon("search").foregroundStyle(Color(Palette.onSurfaceVariant)).accessibilityHidden(true)
-                    TextField(Texts.searchPlaceholder, text: $query)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.search)
-                        .accessibilityLabel("Search")
-                        .accessibilityIdentifier(TestIds.shopSearch)
-                    if !query.isEmpty {
-                        Button { query = "" } label: { Art.icon("close").frame(width: 44, height: 44) }
-                            .foregroundStyle(Color(Palette.onSurfaceVariant))
-                            .accessibilityLabel(Texts.clearSearch)
-                            .accessibilityIdentifier(TestIds.shopSearchClear)
+                // The magnifier and the space around the text are part of the field: a tap anywhere in the box
+                // puts the cursor in it. "Search" is the field's title, so it is the field's own label.
+                FieldBox(trailing: 0, focus: { searchFocused = true }) {
+                    HStack(spacing: 8) {
+                        Art.icon("search").foregroundStyle(Color(Palette.onSurfaceVariant)).accessibilityHidden(true)
+                        TextField("Search", text: $query, prompt: Text(Texts.searchPlaceholder))
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.search)
+                            .focused($searchFocused)
+                            .accessibilityIdentifier(TestIds.shopSearch)
+                        if !query.isEmpty {
+                            Button { query = "" } label: { Art.icon("close").frame(width: 44, height: 44) }
+                                .foregroundStyle(Color(Palette.onSurfaceVariant))
+                                .accessibilityLabel(Texts.clearSearch)
+                                .accessibilityIdentifier(TestIds.shopSearchClear)
+                        }
                     }
                 }
-                .padding(.leading, 12)
-                .frame(minHeight: 48)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(Palette.outline), lineWidth: 1))
                 if load.status == .ready {
                     Text(Catalog.countLine(query: query, results: results.count))
                         .font(.subheadline.weight(.medium))
@@ -65,7 +67,8 @@ struct ShopView: View {
                         .padding(.vertical, 8)
                     }
                 }
-                .scrollDismissesKeyboard(.immediately)
+                // as on every screen: a drag on the list lowers the keyboard, nothing else does
+                .scrollDismissesKeyboard(.interactively)
                 .refreshable { await refresh() }
                 .accessibilityIdentifier(TestIds.shopList)
             }

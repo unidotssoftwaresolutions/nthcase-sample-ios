@@ -78,7 +78,10 @@ swift test --package-path MossgroveKit
 Runs on the Mac, with no simulator. The app's logic lives in `MossgroveKit`, a local Swift package: the catalogue, the
 cart, the form's rules, deep-link parsing, the gesture and shake rules, navigation. Its tests also check the repository:
 the catalogue against SPEC.md's table, the asset catalog against `art/`, and a **source census** that every id in
-`nthcase/test-ids.json` is used on its own screen's source file and nowhere else, with no id outside the list.
+`nthcase/test-ids.json` is used on its own screen's source file and nowhere else, with no id outside the list. A
+second census checks what CI depends on: every text field is focused by a tap anywhere in its box, the id walk names
+every id, the UI tests name no id outside the list, and the `build` workflow runs and reports every check even after
+one fails.
 
 On a simulator (CI runs these on one it creates for the run):
 
@@ -175,7 +178,8 @@ MossgroveKit/               the logic and its tests (swift test)
 MossgroveTests/             unit tests inside the app
 MossgroveUITests/           the id walk, the scenario flows, the screenshots
 Config/Info.plist           the URL scheme
-scripts/                    make-assets.swift, package-simulator-app.sh, ci-simulator.sh, ci-screenshots.sh
+scripts/                    make-assets.swift, package-simulator-app.sh, ci-simulator.sh, ci-screenshots.sh,
+                            ci-test-summary.py
 art/  nthcase/  docs/screenshots/
 ```
 

@@ -9,15 +9,17 @@ struct GiftCardsView: View {
     @State private var result: String?
     @State private var amount = 25
     @State private var design: String?
+    @FocusState private var codeFocused: Bool
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(Texts.checkBalance).font(.headline)
-                OutlinedField(label: Texts.cardCode) {
+                OutlinedField(label: Texts.cardCode, focus: { codeFocused = true }) {
                     TextField(Texts.cardCode, text: $code)
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
+                        .focused($codeFocused)
                         .onChange(of: code) {
                             let upper = code.uppercased()
                             if upper != code { code = upper }

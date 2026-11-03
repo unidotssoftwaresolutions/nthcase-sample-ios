@@ -13,6 +13,9 @@ struct FormView: View {
     @State private var budget = 50.0
     @State private var submitted = false
     @State private var joined: String?
+    @FocusState private var focus: Field?
+
+    private enum Field { case name, email, age, password }
 
     var body: some View {
         let errors = submitted ? FormRules.errors(form) : [:]
@@ -21,9 +24,10 @@ struct FormView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(Texts.formIntro).font(.subheadline).foregroundStyle(Color(Palette.onSurfaceVariant))
 
-                    textField("Full name", text: $form.name, id: TestIds.formName, error: errors[.name], errorId: TestIds.formNameError)
-                    textField("Email", text: $form.email, id: TestIds.formEmail, error: errors[.email], errorId: TestIds.formEmailError, keyboard: .emailAddress)
-                    textField("Age", text: Binding(get: { form.age }, set: { form.age = FormRules.ageInput($0) }), id: TestIds.formAge,
+                    textField("Full name", text: $form.name, field: .name, id: TestIds.formName, error: errors[.name], errorId: TestIds.formNameError)
+                    textField("Email", text: $form.email, field: .email, id: TestIds.formEmail, error: errors[.email],
+                              errorId: TestIds.formEmailError, keyboard: .emailAddress)
+                    textField("Age", text: Binding(get: { form.age }, set: { form.age = FormRules.ageInput($0) }), field: .age, id: TestIds.formAge,
                               error: errors[.age], errorId: TestIds.formAgeError, keyboard: .numberPad)
                     passwordField(error: errors[.password])
                     aislePicker(error: errors[.category])
@@ -86,14 +90,15 @@ struct FormView: View {
 
     // MARK: Fields
 
-    private func textField(_ label: String, text: Binding<String>, id: String, error: String?, errorId: String,
+    private func textField(_ label: String, text: Binding<String>, field: Field, id: String, error: String?, errorId: String,
                            keyboard: UIKeyboardType = .default) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            OutlinedField(label: label, isError: error != nil) {
+            OutlinedField(label: label, isError: error != nil, focus: { focus = field }) {
                 TextField(label, text: text)
                     .keyboardType(keyboard)
                     .textInputAutocapitalization(keyboard == .default ? .words : .never)
                     .autocorrectionDisabled()
+                    .focused($focus, equals: field)
                     .accessibilityIdentifier(id)
             }
             ErrorLine(error: error, id: errorId)
@@ -102,7 +107,7 @@ struct FormView: View {
 
     private func passwordField(error: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            OutlinedField(label: "Password", isError: error != nil) {
+            OutlinedField(label: "Password", isError: error != nil, focus: { focus = .password }) {
                 HStack {
                     Group {
                         if showPassword {
@@ -114,6 +119,7 @@ struct FormView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .textContentType(.newPassword)
+                    .focused($focus, equals: .password)
                     .accessibilityIdentifier(TestIds.formPassword)
                     Button { showPassword.toggle() } label: { Art.icon(showPassword ? "eye-off" : "eye").frame(width: 44, height: 44) }
                         .foregroundStyle(Color(Palette.onSurfaceVariant))

@@ -14,6 +14,38 @@ extension View {
     }
 }
 
+/// The outlined box of a text field: at least 48 points high, with a 1-point frame that turns error-red. The whole
+/// box is one target: a tap anywhere in it, beside or above the line of text too, puts the cursor in the field
+/// (`focus` sets the screen's @FocusState). The field keeps its own tap; the box's target sits behind it, so no
+/// gesture is laid over the field, and the frame is drawing only. A box around a button (the dropdown, the date)
+/// has no `focus`: the button is the target.
+struct FieldBox<Content: View>: View {
+    var isError = false
+    var trailing: CGFloat = 12
+    let focus: (() -> Void)?
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(.leading, 12)
+            .padding(.trailing, trailing)
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .background {
+                if let focus {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture(perform: focus)
+                        .accessibilityHidden(true)
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(isError ? Color(Palette.error) : Color(Palette.outline), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+    }
+}
+
 /// "No. 007" in brass monospace: the item's mark on every screen.
 struct ItemNumber: View {
     let item: Item

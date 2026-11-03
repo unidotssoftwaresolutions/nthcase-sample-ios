@@ -26,7 +26,7 @@ struct SignInView: View {
                 }
                 .padding(.bottom, 8)
 
-                OutlinedField(label: "Email", isError: error != nil) {
+                OutlinedField(label: "Email", isError: error != nil, focus: { focus = .email }) {
                     TextField("Email", text: $email)
                         .keyboardType(.emailAddress)
                         .textContentType(.username)
@@ -37,7 +37,7 @@ struct SignInView: View {
                         .onSubmit { focus = .password }
                         .accessibilityIdentifier(TestIds.signinEmail)
                 }
-                OutlinedField(label: "Password", isError: error != nil) {
+                OutlinedField(label: "Password", isError: error != nil, focus: { focus = .password }) {
                     HStack {
                         Group {
                             if showPassword {
@@ -115,11 +115,12 @@ struct SignInView: View {
     }
 }
 
-/// An outlined text field: a label above a 4-point frame that thickens in primary when focused and turns error-red
-/// with an error. The label is a caption, so the field's own label stays the placeholder.
+/// An outlined field: a label above its box (FieldBox), which turns error-red with an error. The label is a caption,
+/// so the field's own label stays the placeholder. `focus` makes the whole box put the cursor in the field.
 struct OutlinedField<Content: View>: View {
     let label: String
     var isError = false
+    var focus: (() -> Void)?
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -128,10 +129,7 @@ struct OutlinedField<Content: View>: View {
                 .font(.caption)
                 .foregroundStyle(isError ? Color(Palette.error) : Color(Palette.onSurfaceVariant))
                 .accessibilityHidden(true)
-            content
-                .padding(.horizontal, 12)
-                .frame(minHeight: 48)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(isError ? Color(Palette.error) : Color(Palette.outline), lineWidth: 1))
+            FieldBox(isError: isError, focus: focus) { content }
         }
     }
 }

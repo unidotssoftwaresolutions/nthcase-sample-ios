@@ -4,6 +4,11 @@
 # comment beside it. To update one, look up the new version's commit, read what changed, and change both.
 #
 # The simulator is created for this run and named by its UDID in every step, never `booted`.
+#
+# Every check runs whatever an earlier one found, so one run reports them all: each step after the first check has
+# `if: ${{ !cancelled() }}` (and needs only the steps it really depends on: the simulator, the build). Each check has its own
+# timeout, so a check that hangs fails alone and the rest still run. The results and the screenshots are uploaded on
+# failure too. The last step lists every check's outcome and every failing test, and fails the job if any check did.
 name: build
 
 on:
@@ -22,7 +27,8 @@ concurrency:
 jobs:
   test:
     runs-on: macos-latest
-    timeout-minutes: 75
+    # the sum of the steps' own bounds: every check now runs, even after another one failed
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -31,15 +37,26 @@ jobs:
           xcodebuild -version
           swift --version
 
-      # The logic, the id census and the shared sources, on macOS: no simulator.
+      # The logic, the id census, the walk's coverage, the shared sources and this workflow's shape, on macOS: no
+      # simulator.
       - name: MossgroveKit tests (swift test)
+        id: kit
+        timeout-minutes: 10
         run: swift test --package-path MossgroveKit
 
       - name: Create a simulator for this run
         id: simulator
-        run: echo "udid=$(scripts/ci-simulator.sh)" >> "$GITHUB_OUTPUT"
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        # an assignment of its own, so a failing script fails the step instead of passing on an empty UDID
+        run: |
+          udid=$(scripts/ci-simulator.sh)
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Build for testing
+        id: build
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        timeout-minutes: 20
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |
@@ -47,46 +64,90 @@ jobs:
             -destination "id=$UDID" -derivedDataPath build/DerivedData
 
       # First, on the fresh simulator, so Settings shows notifications not yet asked for.
-      - name: Screenshots, light and dark
+      - name: Screenshots, light
+        id: shots_light
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 15
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
-        run: |
-          scripts/ci-screenshots.sh "$UDID" light out/screenshots
-          scripts/ci-screenshots.sh "$UDID" dark out/screenshots
-          xcrun simctl ui "$UDID" appearance light
+        run: scripts/ci-screenshots.sh "$UDID" light out/screenshots
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Screenshots, dark
+        id: shots_dark
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 15
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: scripts/ci-screenshots.sh "$UDID" dark out/screenshots
+
+      - name: Upload the screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: screenshots
           path: out/screenshots/
-          if-no-files-found: error
+          # the screenshot steps check all 24 names and say which are missing; an empty upload is not news
+          if-no-files-found: warn
           retention-days: 30
 
-      # Unit tests inside the app, the id walk (every id in the tree Appium reads) and the flows of scenarios 01-11.
-      - name: Unit tests and XCUITest suite
+      # Unit tests inside the app: the model, the UIKit screen's ids, the alert's ids, the system shake.
+      - name: Unit tests (MossgroveTests)
+        id: unit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 10
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          xcrun simctl ui "$UDID" appearance light   # back from the dark screenshots, whatever they found
+          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
+            -destination "id=$UDID" -derivedDataPath build/DerivedData \
+            -only-testing:MossgroveTests -resultBundlePath build/results/unit.xcresult
+
+      # The id walk: every native id in the tree Appium reads, screen by screen; each walk lists every missing id.
+      - name: Id walk (IdWalkTests)
+        id: walk
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 30
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
             -destination "id=$UDID" -derivedDataPath build/DerivedData \
-            -only-testing:MossgroveTests -only-testing:MossgroveUITests/IdWalkTests -only-testing:MossgroveUITests/FlowTests \
-            -resultBundlePath build/results/tests.xcresult
+            -only-testing:MossgroveUITests/IdWalkTests -resultBundlePath build/results/id-walk.xcresult
+
+      # The flows of scenarios 01-11, and the tab and Back rules.
+      - name: Flows (FlowTests)
+        id: flows
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 30
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
+            -destination "id=$UDID" -derivedDataPath build/DerivedData \
+            -only-testing:MossgroveUITests/FlowTests -resultBundlePath build/results/flows.xcresult
 
       - name: Build the simulator app (Release, arm64 and x86_64)
+        id: package
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
         run: scripts/package-simulator-app.sh "build-${GITHUB_RUN_NUMBER}"
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mossgrove-ios-simulator
           path: dist/
           if-no-files-found: error
           retention-days: 14
 
-      - if: failure()
+      # Every result bundle, red or green: the failing steps' screenshots, the trees, the walks' findings.
+      - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results
           path: build/results/
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Delete the simulator
@@ -96,3 +157,17 @@ jobs:
         run: |
           xcrun simctl shutdown "$UDID" || true
           xcrun simctl delete "$UDID"
+
+      - name: Every check and every failing test
+        if: always()
+        env:
+          CHECK_1: "MossgroveKit tests|${{ steps.kit.outcome }}"
+          CHECK_2: "Simulator|${{ steps.simulator.outcome }}"
+          CHECK_3: "Build for testing|${{ steps.build.outcome }}"
+          CHECK_4: "Screenshots, light|${{ steps.shots_light.outcome }}"
+          CHECK_5: "Screenshots, dark|${{ steps.shots_dark.outcome }}"
+          CHECK_6: "Unit tests|${{ steps.unit.outcome }}"
+          CHECK_7: "Id walk|${{ steps.walk.outcome }}"
+          CHECK_8: "Flows|${{ steps.flows.outcome }}"
+          CHECK_9: "Simulator app zip|${{ steps.package.outcome }}"
+        run: python3 scripts/ci-test-summary.py

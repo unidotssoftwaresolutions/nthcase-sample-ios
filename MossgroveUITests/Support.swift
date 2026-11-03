@@ -105,27 +105,62 @@ extension XCUIElement {
     }
 
     /// Types at the end of what the field already holds.
-    func type(_ text: String) {
-        focusAtEnd()
+    func type(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        guard focusAtEnd(file: file, line: line) else { return }
         typeText(text)
     }
 
     /// Empties a text field, then types.
-    func replace(with text: String) {
+    func replace(with text: String, file: StaticString = #filePath, line: UInt = #line) {
         let current = typed
-        focusAtEnd()
+        guard focusAtEnd(file: file, line: line) else { return }
         if !current.isEmpty { typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count)) }
         typeText(text)
     }
 
-    /// An element tap scrolls the field into view and focuses it. When it already holds text, a second tap past the
-    /// text puts the cursor at its end (a coordinate tap alone would not scroll, and could land on the keyboard).
-    private func focusAtEnd() {
+    var hasFocus: Bool { (value(forKey: "hasKeyboardFocus") as? Bool) ?? false }
+
+    /// One tap on the field, as a person and Appium make it: it scrolls the field into view and must focus it. When
+    /// it already holds text, a second tap past the text puts the cursor at its end (a coordinate tap alone would not
+    /// scroll, and could land on the keyboard).
+    ///
+    /// Then it waits up to 3 s for the focus, as Appium's typing waits for the keyboard, and never taps again: a field
+    /// that one tap does not focus is the app's defect, and the failure says where the focus went instead.
+    private func focusAtEnd(file: StaticString, line: UInt) -> Bool {
         let holdsText = !typed.isEmpty
         tap()
-        guard holdsText else { return }
-        Thread.sleep(forTimeInterval: 0.6) // not a double tap, which would select a word
-        coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
+        if holdsText {
+            Thread.sleep(forTimeInterval: 0.6) // not a double tap, which would select a word
+            coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
+        }
+        let focused = NSPredicate { object, _ in
+            guard let field = object as? XCUIElement else { return false }
+            return field.hasFocus || field.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == true")).count > 0
+        }
+        if XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: focused, object: self)], timeout: 3) == .completed { return true }
+        reportNoFocus(file: file, line: line)
+        return false
+    }
+
+    /// What the next run needs to fix a field that a tap did not focus: where the tap went, who holds the focus,
+    /// whether a keyboard is up, the screen and the whole tree.
+    private func reportNoFocus(file: StaticString, line: UInt) {
+        let app = XCUIApplication()
+        let holder = app.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch
+        let holderText = holder.exists ? "an element of type \(holder.elementType.rawValue), '\(holder.identifier)', '\(holder.label)'" : "nothing"
+        let keyboard = app.keyboards.firstMatch.exists ? "a keyboard is up" : "no keyboard is up"
+        XCTContext.runActivity(named: "No keyboard focus on \(identifier)") { activity in
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = "after the tap on \(identifier)"
+            shot.lifetime = .keepAlways
+            activity.add(shot)
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "the tree after the tap on \(identifier)"
+            tree.lifetime = .keepAlways
+            activity.add(tree)
+        }
+        XCTFail("one tap on \(identifier) (\(label)) at (\(frame.midX), \(frame.midY)) did not give it keyboard focus within 3 s; "
+                + "the focus is on \(holderText); \(keyboard); hittable: \(isHittable); frame: \(frame)", file: file, line: line)
     }
 
     /// Turns a switch on or off, and checks that it moved.
