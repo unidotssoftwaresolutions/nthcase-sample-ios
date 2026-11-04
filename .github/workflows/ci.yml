@@ -4,7 +4,7 @@
 #   the device suite, when asked:   the simulator, the screenshots, the unit tests inside the app, the id walk, the
 #                                   flows and the tabs on an older iOS (`devices: true`)
 #
-# build.yml asks for the device suite on "Run workflow" and on the weekly schedule; release.yml always does. On a push
+# build.yml asks for the device suite on "Run workflow" and on the monthly schedule; release.yml always does. On a push
 # or a pull request the suite's steps are skipped, so no simulator is created and the summary lists them as skipped.
 #
 # Every action is named by its commit, not by a tag someone can move. The version each SHA was on 2026-11-03 is in the

@@ -309,7 +309,7 @@ final class CICensusTests: XCTestCase {
 
     // AMENDED (CI diet, 2026-11-04): the job moved from build.yml into ci.yml, a reusable workflow that build.yml and
     // release.yml both call. build.yml runs only the fast checks on a push or a pull request, and asks for the device
-    // suite on "Run workflow" and every Monday; release.yml always asks for it. The checks below read the job's steps
+    // suite on "Run workflow" and on the 1st of each month; release.yml always asks for it. The checks below read the job's steps
     // in ci.yml now, read all three files for pins, permissions and timeouts, and read build.yml and release.yml for
     // when each part runs. Nothing they checked before is checked less.
     private static let workflows = [".github/workflows/build.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
@@ -421,16 +421,16 @@ final class CICensusTests: XCTestCase {
     }
 
     /// AMENDED (new with the CI diet): a push to main or a pull request runs the fast checks, unless it changed only
-    /// text that no check reads; "Run workflow" and Monday 03:17 UTC add the device suite; a newer push cancels an
+    /// text that no check reads; "Run workflow" and 03:17 UTC on the 1st of each month add the device suite; a newer push cancels an
     /// older run, and nothing else is ever cancelled; a tag runs every check, the suite included, before it publishes.
-    func testTheSuiteRunsWhenAskedWeeklyAndBeforeEveryRelease() throws {
+    func testTheSuiteRunsWhenAskedMonthlyAndBeforeEveryRelease() throws {
         let build = try Repo.text(".github/workflows/build.yml")
         let ignoredBlock = "    paths-ignore:\n" + Self.ignored.map { "      - \($0)\n" }.joined()
         XCTAssertTrue(build.contains("\non:\n  push:\n    branches: [main]\n" + ignoredBlock + "  pull_request:\n"), "push to main, but for the text")
         XCTAssertTrue(build.contains("\n  pull_request:\n" + ignoredBlock + "  workflow_dispatch:\n"), "every pull request, but for the text")
         XCTAssertEqual(try matches(#"(?m)^\s+paths(?:-ignore)?:"#, in: build).count, 2, "one list for each, and no other filter")
         XCTAssertTrue(build.contains("\n  workflow_dispatch:\n"), "Run workflow")
-        XCTAssertTrue(build.contains("\n  schedule:\n") && build.contains("\n    - cron: \"17 3 * * 1\"\n"), "Monday 03:17 UTC")
+        XCTAssertTrue(build.contains("\n  schedule:\n") && build.contains("\n    - cron: \"17 3 1 * *\"\n"), "03:17 UTC on the 1st of each month")
         XCTAssertTrue(build.contains("\nconcurrency:\n  group: build-${{ github.event_name }}-${{ github.ref }}\n"
                                      + "  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}\n"))
         XCTAssertTrue(build.contains("\n  ci:\n    uses: ./.github/workflows/ci.yml\n    with:\n"
