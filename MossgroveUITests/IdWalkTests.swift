@@ -20,7 +20,7 @@ final class IdWalkTests: XCTestCase {
         Step(name: "Sign in, refused", ids: ["signin_error"]) { app in
             app.id("signin_email").type("tester@mossgrove.test")
             app.id("signin_password").type("letmein1")
-            app.id("signin_submit").tap()
+            app.id("signin_submit").tapWhenThere()
         },
         Step(name: "Deep link, unknown id", ids: ["item_screen", "item_not_found", "item_not_found_action", "top_bar_title", "top_bar_back"]) { app in
             app.openLinkFromColdStart("nthcase-sample://item/999")
@@ -42,30 +42,30 @@ final class IdWalkTests: XCTestCase {
             app.id("shop_search").replace(with: "velvet\n")
         },
         Step(name: "Shop, refreshed", ids: ["snackbar", "snackbar_text"]) { app in
-            app.id("shop_empty_action").tap()
+            app.id("shop_empty_action").tapWhenThere()
             pullToRefresh(app)
         },
         Step(name: "Item", ids: ["item_screen", "item_image", "item_number", "item_name", "item_price", "item_description",
                                  "item_qty_decrease", "item_qty_value", "item_qty_increase", "item_add_to_cart", "top_bar_title",
                                  "top_bar_back"]) { app in
-            app.id("shop_item_1").tap()
+            app.id("shop_item_1").tapWhenThere()
         },
         Step(name: "Item, added", ids: ["snackbar", "snackbar_text", "snackbar_action"]) { app in
-            app.id("item_add_to_cart").tap()
+            app.id("item_add_to_cart").tapWhenThere()
         },
         Step(name: "Cart", ids: ["cart_screen", "cart_list", "cart_line_1", "cart_line_decrease_1", "cart_line_qty_1",
                                  "cart_line_increase_1", "cart_line_remove_1", "cart_line_total_1", "cart_total", "cart_checkout",
                                  "top_bar_title"]) { app in
-            app.id("snackbar_action").tap()
+            app.id("snackbar_action").tapWhenThere()
         },
         Step(name: "Checkout dialog", ids: ["dialog", "dialog_title", "dialog_text", "dialog_confirm", "dialog_dismiss"]) { app in
-            app.id("cart_checkout").tap()
+            app.id("cart_checkout").tapWhenThere()
         },
         Step(name: "Cart, empty", ids: ["cart_empty", "cart_empty_action", "snackbar_action"]) { app in
-            app.id("dialog_confirm").tap()
+            app.id("dialog_confirm").tapWhenThere()
         },
         Step(name: "Orders, one order", ids: ["orders_screen", "orders_list", "orders_row_1", "top_bar_back"]) { app in
-            app.id("snackbar_action").tap()
+            app.id("snackbar_action").tapWhenThere()
         },
     ]
 
@@ -78,29 +78,29 @@ final class IdWalkTests: XCTestCase {
         Step(name: "Join the club", ids: ["form_screen", "form_name", "form_email", "form_age", "form_password", "form_password_toggle",
                                           "form_category", "form_date", "form_newsletter", "form_budget", "form_budget_value",
                                           "form_terms", "form_submit"]) { app in
-            app.id("lab_form").tap()
+            app.id("lab_form").tapWhenThere()
         },
         Step(name: "Join the club, refused", ids: ["form_name_error", "form_email_error", "form_age_error", "form_password_error",
                                                    "form_category_error", "form_date_error", "form_terms_error"]) { app in
-            app.scrollTo(app.id("form_submit")).tap()
+            app.scrollTo(app.id("form_submit")).tapWhenThere()
         },
         Step(name: "Join the club, dropdown open", ids: ["form_category_option_kitchen", "form_category_option_desk",
                                                          "form_category_option_garden", "form_category_option_home"]) { app in
-            app.scrollTo(app.id("form_category"), up: true).tap()
+            app.scrollTo(app.id("form_category"), up: true).tapWhenThere()
         },
         Step(name: "Join the club, date picker", ids: ["form_date_picker", "form_date_confirm", "form_date_cancel"]) { app in
-            app.id("form_category_option_garden").tap()
-            app.scrollTo(app.id("form_date")).tap()
+            app.id("form_category_option_garden").tapWhenThere()
+            app.scrollTo(app.id("form_date")).tapWhenThere()
         },
         Step(name: "Join the club, joined", ids: ["form_result"]) { app in
-            app.id("form_date_confirm").tap()
+            app.id("form_date_confirm").tapWhenThere()
             app.scrollTo(app.id("form_name"), up: true)
             app.id("form_name").type("Sam Rivera\n")
             app.id("form_email").type("sam@example.test\n")
             app.id("form_age").type("34")
             app.id("form_password").type("garden42x\n")
-            app.scrollTo(app.id("form_terms")).tap()
-            app.scrollTo(app.id("form_submit")).tap()
+            app.scrollTo(app.id("form_terms")).tapWhenThere()
+            app.scrollTo(app.id("form_submit")).tapWhenThere()
             app.scrollTo(app.id("form_result"))
         },
         Step(name: "Gestures", ids: ["gestures_screen", "gestures_status", "gestures_orientation", "gestures_tap", "gestures_tap_count",
@@ -108,18 +108,18 @@ final class IdWalkTests: XCTestCase {
                                      "gestures_drop_target", "gestures_pinch", "gestures_zoom_value", "gestures_rotate",
                                      "gestures_rotation_value", "gestures_scroll"]) { app in
             app.back()
-            app.id("lab_gestures").tap()
+            app.id("lab_gestures").tapWhenThere()
         },
         Step(name: "Gestures, the bottom drawer", ids: ["gestures_scroll_target"]) { app in
             app.scrollTo(app.id("gestures_scroll_target"))
         },
         Step(name: "Care guide", ids: ["webview_screen", "webview", "webview_status"]) { app in
             app.back()
-            app.id("lab_webview").tap()
+            app.id("lab_webview").tapWhenThere()
         },
         Step(name: "Delivery slots, loading", ids: ["slow_screen", "slow_loading"]) { app in
             app.back()
-            app.id("lab_slow").tap()
+            app.id("lab_slow").tapWhenThere()
         },
         Step(name: "Delivery slots", ids: ["slow_content", "slow_slot_1", "slow_slot_2", "slow_slot_3", "slow_slot_4", "slow_slot_5",
                                            "slow_reload"]) { app in
@@ -127,7 +127,7 @@ final class IdWalkTests: XCTestCase {
         },
         Step(name: "Orders, none", ids: ["orders_screen", "orders_empty", "orders_empty_action"]) { app in
             app.back()
-            app.id("lab_orders").tap()
+            app.id("lab_orders").tapWhenThere()
         },
     ]
 
@@ -143,10 +143,10 @@ final class IdWalkTests: XCTestCase {
             app.scrollTo(app.id("settings_version"))
         },
         Step(name: "Settings, reset dialog", ids: ["settings_reset_cancel", "settings_reset_confirm"]) { app in
-            app.id("settings_reset").tap()
+            app.id("settings_reset").tapWhenThere()
         },
         Step(name: "Shop, failed", ids: ["shop_error", "shop_retry"]) { app in
-            app.id("settings_reset_cancel").tap()
+            app.id("settings_reset_cancel").tapWhenThere()
             app.scrollTo(app.id("settings_fail_loading")).set(true)
             app.openTab("nav_shop")
         },
@@ -214,9 +214,9 @@ final class IdWalkTests: XCTestCase {
             }
         }
         XCTContext.runActivity(named: "The Cart tab says its count") { _ in
-            app.id("shop_item_1").tap()
+            app.id("shop_item_1").tapWhenThere()
             if app.id("nav_shop").exists { problems.append("the tab bar is on the item page") }
-            app.id("item_add_to_cart").tap()
+            app.id("item_add_to_cart").tapWhenThere()
             app.back()
             check("nav_cart", label: "Cart, 1 item", selected: false)
         }
@@ -243,16 +243,23 @@ final class IdWalkTests: XCTestCase {
     // MARK: Walking
 
     /// Walks every step, whatever an earlier one found, and checks every id of every step. The walk fails once, at
-    /// its end, with every missing id and every id outside the list, screen by screen; each step's own activity
-    /// carries its screenshot and what it found.
+    /// its end, with every missing id and every id outside the list, screen by screen, and every tap or field it could
+    /// not use on the way (`Misses`: a missing element no longer ends the walk, as `lab_webview` did in the third CI
+    /// run). Each step's own activity carries its screenshot and what it found; a step that missed anything also keeps
+    /// the whole tree XCUITest read, every element's type, identifier, label and frame, so the next run shows where an
+    /// id went.
     private func walk(_ steps: [Step]) {
         continueAfterFailure = true
+        Misses.keep()
+        defer { Misses.stopKeeping() }
         let app = XCUIApplication()
         app.launch()
         var problems: [String] = []
         for step in steps {
             XCTContext.runActivity(named: step.name) { activity in
                 step.act(app)
+                let couldNot = Misses.take()
+                if !couldNot.isEmpty { problems.append("\(step.name): \(couldNot.joined(separator: "; "))") }
                 // One read of the whole tree first, at once: a spinner's id lasts 3 s, and waiting on each id in turn
                 // spent them before it was the spinner's turn (second CI run: slow_loading). Only what that read
                 // missed is waited for.
@@ -271,10 +278,17 @@ final class IdWalkTests: XCTestCase {
                     + (outside.isEmpty ? "" : "; outside the list \(outside.joined(separator: " "))")
                     + (repeated.isEmpty ? "" : "; more than one element named \(repeated.joined(separator: " "))")
                 XCTContext.runActivity(named: found) { _ in }
+                let clean = missing.isEmpty && outside.isEmpty && couldNot.isEmpty
                 let shot = XCTAttachment(screenshot: app.screenshot())
                 shot.name = step.name
-                shot.lifetime = missing.isEmpty && outside.isEmpty ? .deleteOnSuccess : .keepAlways
+                shot.lifetime = clean ? .deleteOnSuccess : .keepAlways
                 activity.add(shot)
+                if !clean {
+                    let whole = XCTAttachment(string: app.debugDescription)
+                    whole.name = "\(step.name): the tree"
+                    whole.lifetime = .keepAlways
+                    activity.add(whole)
+                }
             }
         }
         if !problems.isEmpty {
@@ -301,7 +315,7 @@ extension XCUIApplication {
     func signIn(expectShop: Bool) {
         if expectShop { signIn(); return }
         XCTAssertTrue(id("signin_email").waitForExistence(timeout: 15))
-        id("signin_use_test_account").tap()
-        id("signin_submit").tap()
+        id("signin_use_test_account").tapWhenThere()
+        id("signin_submit").tapWhenThere()
     }
 }

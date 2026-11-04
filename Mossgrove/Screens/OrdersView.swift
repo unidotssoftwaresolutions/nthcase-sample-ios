@@ -46,7 +46,7 @@ struct OrdersView: View {
             }
         }
         .screenBackground()
-        .container(TestIds.ordersScreen)
+        .screen(TestIds.ordersScreen)
         .topBar("Orders", back: true)
         .onAppear { load.start(slow: model.slowLoading, fail: model.failFirstLoad) }
         .onDisappear { load.stop() }

@@ -3,6 +3,11 @@ import SwiftUI
 
 /// iOS has no snackbar, so the app shows the same message in a bottom banner, with the same ids and the same 10 s
 /// (SPEC.md §5). The banner is one container, `snackbar`; its message and its action keep their own ids.
+///
+/// It sits above a panel the screen pins to its bottom (`AppModel.snackbarLift`), never over it: on the Cart the
+/// banner from Add to cart lay over Check out for its 10 s, and a tap on Check out landed on the banner (third CI run,
+/// flow 03: the dialog's title never came). A person meets that, and so does NthCase, whose tap lands where the
+/// button is.
 struct SnackbarHost: View {
     @Environment(AppModel.self) private var model
 
@@ -27,7 +32,7 @@ struct SnackbarHost: View {
             .frame(minHeight: 48)
             .background(Color(Palette.inverseSurface), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+            .padding(.bottom, 8 + model.snackbarLift)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(TestIds.snackbar)
             .id(snack.id)

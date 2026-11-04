@@ -51,7 +51,7 @@ struct LabView: View {
             }
         }
         .screenBackground()
-        .container(TestIds.labScreen)
+        .screen(TestIds.labScreen)
         .topBar(AppTab.lab.title)
     }
 }

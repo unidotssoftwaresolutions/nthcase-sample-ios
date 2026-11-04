@@ -66,7 +66,7 @@ struct GesturesView: View {
         }
         .screenBackground()
         .background { ShakeCatcher { status = GestureWords.shaken } }
-        .container(TestIds.gesturesScreen)
+        .screen(TestIds.gesturesScreen)
         .topBar("Gestures", back: true)
     }
 

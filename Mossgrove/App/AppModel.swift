@@ -47,6 +47,9 @@ final class AppModel {
     /// A deep link that arrived before sign-in; it opens right after.
     private(set) var pendingItemId: String?
     private(set) var snack: Snack?
+    /// How far above the bottom of the screen the banner sits: the height of a panel the screen pins there (the Cart's
+    /// total and Check out), so the banner never covers that panel's button. 0 elsewhere.
+    var snackbarLift: CGFloat = 0
     private(set) var dialog: DialogRequest?
     private var snackTimer: Task<Void, Never>?
 

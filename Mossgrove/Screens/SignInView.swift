@@ -91,7 +91,7 @@ struct SignInView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .screenBackground()
-        .container(TestIds.signinScreen)
+        .screen(TestIds.signinScreen)
     }
 
     private func submit() {

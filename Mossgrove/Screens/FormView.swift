@@ -45,8 +45,8 @@ struct FormView: View {
                             Spacer()
                             Text(FormRules.budgetText(budget)).font(.headline).accessibilityIdentifier(TestIds.formBudgetValue)
                         }
-                        Slider(value: $budget, in: FormRules.budgetRange, step: FormRules.budgetStep) { Text("Monthly budget") }
-                            .accessibilityIdentifier(TestIds.formBudget)
+                        StepSlider(value: $budget, range: FormRules.budgetRange, step: FormRules.budgetStep, label: "Monthly budget",
+                                   id: TestIds.formBudget)
                             .onChange(of: budget) { form.budget = Int(budget.rounded()) }
                     }
 
@@ -79,7 +79,7 @@ struct FormView: View {
             .onChange(of: joined) { if joined != nil { withAnimation { scroller.scrollTo("result") } } }
         }
         .screenBackground()
-        .container(TestIds.formScreen)
+        .screen(TestIds.formScreen)
         .topBar("Join the club", back: true)
         .sheet(isPresented: $dateOpen) { datePicker }
     }

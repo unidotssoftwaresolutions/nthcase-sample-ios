@@ -82,8 +82,17 @@ the catalogue against SPEC.md's table, the asset catalog against `art/`, and a *
 `nthcase/test-ids.json` is used on its own screen's source file and nowhere else, with no id outside the list. A
 second census checks what CI depends on: every text field is focused by a tap anywhere in its box, a password is one
 field whose dots come and go in place, the tab bar is the app's own buttons, every list's id is on a container around
-its scroll view, the UI tests open a link the way the system does, the id walk names every id, the UI tests name no id
-outside the list, and the `build` workflow runs and reports every check even after one fails.
+its scroll view and every screen's root is a node of its own, the banner sits above the Cart's Check out, the budget is
+a slider whose frame is its thumb's travel, the UI tests open a link the way the system does and wait for what they
+tap, the id walk names every id, the UI tests name no id outside the list, and the `build` workflow runs and reports
+every check even after one fails.
+
+`scripts/ax-shapes.swift` shows, on the Mac, the accessibility tree SwiftUI builds for the screens' shapes, and fails
+if a shape the app uses loses an id:
+
+```bash
+swiftc -O scripts/ax-shapes.swift -o build/ax-shapes && build/ax-shapes
+```
 
 On a simulator (CI runs these on one it creates for the run):
 
@@ -163,12 +172,21 @@ element's `name` (the `accessibility id` locator). Three needed care, and the id
   but SwiftUI gives a tab item no identifier, and on iOS 26 the system bar's buttons do not take one from their
   `UITabBarItem` either (the second CI run found no `nav_*` id in the tree). The bar is on the four tabs' first screens
   only, as on Android, and the keyboard covers it, as it covers a system bar.
-- **Lists.** A list's id (`shop_list`, `cart_list`, `orders_list`, `slow_content`) is on a container around its scroll
-  view: on iOS 26 an id set on a `ScrollView` itself did not always reach the tree.
+- **Lists and screens.** A list's id (`shop_list`, `cart_list`, `orders_list`, `slow_content`) is on a container
+  around its scroll view, and a screen's root is `.screen(id)`: a container with a second child that draws nothing.
+  SwiftUI folds a container whose only child is another container into one node, and the outer id wins, so on Orders
+  and Delivery slots, which hold nothing but their list, the list's id was in no tree (second and third CI runs).
+  `scripts/ax-shapes.swift` shows it.
 - **Passwords.** Each password is one UIKit field whose dots come and go in place with Show password, so it keeps its
   focus, and it keeps what was typed when a new editing session begins (UIKit would empty a secure field).
 - **Containers.** A screen root or a card is `.accessibilityElement(children: .contain)`, so its children keep their own
   ids. `.combine` is used only where nothing inside has an id (a shop row, an order row).
+- **The budget slider.** UIKit's slider, whose accessibility frame is the thumb's travel, from its centre at $0 to its
+  centre at $200. NthCase's `slide` sets a slider through XCUITest's `adjust(toNormalizedSliderPosition:)`, which drags
+  to that fraction of the element's frame; on SwiftUI's Slider, whose frame is wider than the travel, 0.6 gave $130,
+  not $120 (third CI run).
+- **The banner.** It sits above the Cart's total and Check out, never over them, so Check out takes its tap while the
+  banner's 10 s run.
 - **The alerts.** The checkout dialog is the app's own view, because a SwiftUI alert's buttons cannot carry ids. The
   UIKit screen's `UIAlertController` gets its two button ids once it is on screen.
 

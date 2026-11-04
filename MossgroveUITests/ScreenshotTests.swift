@@ -6,7 +6,7 @@ import XCTest
 /// With `MOSSGROVE_SCREENSHOTS` set (CI passes `TEST_RUNNER_MOSSGROVE_SCREENSHOTS`), the pictures are written there as
 /// PNG files; they are always kept as attachments of the result bundle too.
 ///
-/// The 24 screens are eight tests, each from a cold start, so a screen that fails costs only its own group: the run
+/// The 24 screens are ten tests, each from a cold start, so a screen that fails costs only its own group: the run
 /// still makes every other picture. `scripts/ci-screenshots.sh` checks that all 24 files are there and names any
 /// that is not.
 final class ScreenshotTests: XCTestCase {
@@ -45,7 +45,7 @@ final class ScreenshotTests: XCTestCase {
 
         app.id("signin_email").type("tester@mossgrove.test\n")
         app.id("signin_password").type("letmein1")
-        app.id("signin_submit").tap()
+        app.id("signin_submit").tapWhenThere()
         wait("signin_error")
         shot("02-sign-in-error")
     }
@@ -66,29 +66,29 @@ final class ScreenshotTests: XCTestCase {
 
     func test03ItemCartAndOrders() {
         app.signIn()
-        app.id("shop_item_1").tap()
+        app.id("shop_item_1").tapWhenThere()
         wait("item_add_to_cart")
         shot("06-item")
 
-        app.id("item_qty_increase").tap()
-        app.id("item_add_to_cart").tap()
+        app.id("item_qty_increase").tapWhenThere()
+        app.id("item_add_to_cart").tapWhenThere()
         wait("snackbar")
         shot("07-item-snackbar")
 
-        app.id("snackbar_action").tap()
+        app.id("snackbar_action").tapWhenThere()
         wait("cart_total")
         shot("08-cart")
 
-        app.id("cart_checkout").tap()
+        app.id("cart_checkout").tapWhenThere()
         wait("dialog")
         shot("09-cart-dialog")
 
-        app.id("dialog_confirm").tap()
+        app.id("dialog_confirm").tapWhenThere()
         wait("cart_empty")
         shot("10-cart-empty")
 
         // "View orders" in the snackbar: the same Orders screen the Lab opens, with Order 1 in it
-        app.id("snackbar_action").tap()
+        app.id("snackbar_action").tapWhenThere()
         wait("orders_row_1")
         shot("18-orders")
     }
@@ -99,8 +99,8 @@ final class ScreenshotTests: XCTestCase {
         wait("lab_gift_cards")
         shot("11-lab")
 
-        app.id("lab_form").tap()
-        app.scrollTo(app.id("form_submit")).tap()
+        app.id("lab_form").tapWhenThere()
+        app.scrollTo(app.id("form_submit")).tapWhenThere()
         wait("form_terms_error")
         app.scrollTo(app.id("form_name"), up: true)
         shot("12-form-errors")
@@ -109,31 +109,37 @@ final class ScreenshotTests: XCTestCase {
         app.id("form_email").type("sam@example.test\n")
         app.id("form_age").type("34")
         app.id("form_password").type("garden42x\n")
-        app.scrollTo(app.id("form_category")).tap()
-        app.id("form_category_option_garden").tap()
-        app.scrollTo(app.id("form_date")).tap()
-        app.id("form_date_confirm").tap()
+        app.scrollTo(app.id("form_category")).tapWhenThere()
+        app.id("form_category_option_garden").tapWhenThere()
+        app.scrollTo(app.id("form_date")).tapWhenThere()
+        app.id("form_date_confirm").tapWhenThere()
         app.id("form_budget").adjust(toNormalizedSliderPosition: 0.6)
-        app.scrollTo(app.id("form_terms")).tap()
-        app.scrollTo(app.id("form_submit")).tap()
+        app.scrollTo(app.id("form_terms")).tapWhenThere()
+        app.scrollTo(app.id("form_submit")).tapWhenThere()
         wait("form_result")
         app.scrollTo(app.id("form_result"))
         shot("13-form-done")
     }
 
-    func test05LabBenches() {
+    // The Lab's three benches are three tests, each from a cold start: in the third CI run a care guide that did not
+    // open cost the slots' two pictures after it.
+    func test05Gestures() {
         app.signIn()
         app.openLab("lab_gestures")
         wait("gestures_status")
         shot("14-gestures")
+    }
 
-        app.back()
-        app.id("lab_webview").tap()
-        XCTAssertTrue(app.id("webview_status").waitFor("Care guide loaded", timeout: 10))
+    func test05WebView() {
+        app.signIn()
+        app.openLab("lab_webview")
+        XCTAssertTrue(app.id("webview_status").waitFor("Care guide loaded", timeout: 10), "the care guide did not say it loaded")
         shot("15-webview", settle: 1.0)
+    }
 
-        app.back()
-        app.id("lab_slow").tap()
+    func test05Slots() {
+        app.signIn()
+        app.openLab("lab_slow")
         wait("slow_loading", 3)
         shot("16-slow-loading", settle: 0.2)
 
@@ -147,7 +153,7 @@ final class ScreenshotTests: XCTestCase {
         wait("settings_theme")
         shot("22-settings")
 
-        app.scrollTo(app.id("settings_reset")).tap()
+        app.scrollTo(app.id("settings_reset")).tapWhenThere()
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
         shot("23-settings-dialog")
 
@@ -158,7 +164,7 @@ final class ScreenshotTests: XCTestCase {
         wait("orders_error")
         shot("20-orders-error")
 
-        app.id("orders_retry").tap()
+        app.id("orders_retry").tapWhenThere()
         wait("orders_empty")
         shot("19-orders-empty")
     }

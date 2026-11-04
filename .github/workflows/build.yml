@@ -27,8 +27,8 @@ concurrency:
 jobs:
   test:
     runs-on: macos-latest
-    # the sum of the steps' own bounds: every check now runs, even after another one failed
-    timeout-minutes: 135
+    # room for every step's own bound: every check now runs, even after another one failed
+    timeout-minutes: 145
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -115,11 +115,12 @@ jobs:
             -destination "id=$UDID" -derivedDataPath build/DerivedData \
             -only-testing:MossgroveUITests/IdWalkTests -resultBundlePath build/results/id-walk.xcresult
 
-      # The flows of scenarios 01-11, and the tab and Back rules.
+      # The flows of scenarios 01-11, the tab and Back rules, the banner over Check out and the budget's steps.
       - name: Flows (FlowTests)
         id: flows
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 30
+        # 17 tests: two more this round (the banner over Check out, the budget at six fractions)
+        timeout-minutes: 40
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |

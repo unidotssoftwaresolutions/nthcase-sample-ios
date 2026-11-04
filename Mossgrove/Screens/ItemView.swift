@@ -20,7 +20,7 @@ struct ItemView: View {
             }
         }
         .screenBackground()
-        .container(TestIds.itemScreen)
+        .screen(TestIds.itemScreen)
         .topBar(Catalog.find(raw: rawId)?.name ?? Texts.notFound, back: true)
     }
 

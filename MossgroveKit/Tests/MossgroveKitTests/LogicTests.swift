@@ -319,3 +319,50 @@ final class PasswordEditingTests: XCTestCase {
         XCTAssertEqual(PasswordEditing.apply(to: "abc", range: NSRange(location: NSNotFound, length: 0), replacement: "d", sessionJustBegan: false), "abcd")
     }
 }
+
+/// The budget slider: $0–200 in $10 steps (SPEC.md §5), set the way NthCase's `slide` and the flows set it.
+final class SliderTrackTests: XCTestCase {
+    private let range = FormRules.budgetRange
+    private let step = FormRules.budgetStep
+
+    private func dollars(_ fraction: Double) -> Double {
+        SliderTrack.snapped(range.lowerBound + fraction * (range.upperBound - range.lowerBound), range: range, step: step)
+    }
+
+    /// The third CI run's case. The form's slider frame was 370 points wide; a thumb of 28 to 38 points leaves a
+    /// travel that much shorter. A drag from $50 (0.25) to 0.6 of the frame then ends at $125–128, and the step makes
+    /// it $130: what flow 04 read.
+    func testADragOnAFrameWiderThanTheTravelOvershoots() {
+        for thumb in [28.0, 32.0, 38.0] {
+            let landed = SliderTrack.dragOnAFrame(from: 0.25, to: 0.6, frameWidth: 370, travelWidth: 370 - thumb)
+            XCTAssertEqual(dollars(landed), 130, "thumb \(thumb)")
+        }
+    }
+
+    /// With the frame Appium reads equal to the travel, 0.6 is $120 from anywhere, and so is every step.
+    func testADragOnTheTravelLandsWhereTheFractionSays() {
+        for from in [0.0, 0.25, 0.6, 1.0] {
+            XCTAssertEqual(dollars(SliderTrack.dragOnAFrame(from: from, to: 0.6, frameWidth: 332, travelWidth: 332)), 120)
+        }
+        for target in 0...20 {
+            let fraction = Double(target) / 20
+            XCTAssertEqual(dollars(SliderTrack.dragOnAFrame(from: 0.25, to: fraction, frameWidth: 332, travelWidth: 332)),
+                           Double(target * 10), "\(fraction)")
+        }
+    }
+
+    func testEveryValueIsAStepInTheRange() {
+        XCTAssertEqual(SliderTrack.snapped(122, range: range, step: step), 120)
+        XCTAssertEqual(SliderTrack.snapped(125, range: range, step: step), 130, "halfway rounds up")
+        XCTAssertEqual(SliderTrack.snapped(127.4, range: range, step: step), 130)
+        XCTAssertEqual(SliderTrack.snapped(-3, range: range, step: step), 0)
+        XCTAssertEqual(SliderTrack.snapped(204, range: range, step: step), 200)
+        XCTAssertEqual(FormRules.budgetText(SliderTrack.snapped(119.6, range: range, step: step)), "$120")
+    }
+
+    func testTheTravelRunsFromCentreToCentre() {
+        let travel = SliderTrack.travel(lowCentre: 14, highCentre: 356, height: 44)
+        XCTAssertEqual(travel, CGRect(x: 14, y: 0, width: 342, height: 44))
+        XCTAssertEqual(SliderTrack.travel(lowCentre: 10, highCentre: 10, height: 30).width, 1, "never zero wide")
+    }
+}

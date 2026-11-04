@@ -27,7 +27,7 @@ struct CartView: View {
             }
         }
         .screenBackground()
-        .container(TestIds.cartScreen)
+        .screen(TestIds.cartScreen)
         .topBar(AppTab.cart.title)
     }
 
@@ -44,6 +44,9 @@ struct CartView: View {
         }
         .padding(16)
         .background(Color(Palette.surfaceContainer).ignoresSafeArea(edges: .horizontal))
+        // the banner sits above this panel, not over Check out (Snackbar.swift)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { model.snackbarLift = $0 }
+        .onDisappear { model.snackbarLift = 0 }
     }
 
     private func confirm() {

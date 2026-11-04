@@ -31,12 +31,12 @@ final class FlowTests: XCTestCase {
         expect("Home and desk goods")
         app.id("signin_email").type("tester@mossgrove.test")
         app.id("signin_password").type("letmein1")
-        app.id("signin_submit").tap()
+        app.id("signin_submit").tapWhenThere()
         expect("Wrong email or password")
-        app.id("signin_password_toggle").tap()
+        app.id("signin_password_toggle").tapWhenThere()
         expect("signin_password", shows: "letmein1")
         app.id("signin_password").replace(with: "Mossgrove123")
-        app.id("signin_submit").tap()
+        app.id("signin_submit").tapWhenThere()
         expect("shop_item_1", shows: "Stoneware Mug")
         expect("shop_count", shows: "40 drawers")
     }
@@ -47,12 +47,12 @@ final class FlowTests: XCTestCase {
         app.id("shop_search").type("lamp\n")
         expect("shop_count", shows: "4 of 40 drawers")
         expect("shop_item_25", shows: "Floor Lamp")
-        app.id("shop_search_clear").tap()
+        app.id("shop_search_clear").tapWhenThere()
         expect("shop_count", shows: "40 drawers")
         app.id("shop_search").type("velvet\n")
         expect("No drawers match")
         XCTAssertTrue(app.buttons["Clear search"].exists)
-        app.id("shop_empty_action").tap()
+        app.id("shop_empty_action").tapWhenThere()
         let last = app.scrollTo(app.id("shop_item_40"))
         XCTAssertTrue(last.waitFor("Fruit Bowl"))
         XCTAssertTrue(last.waitFor("No. 040"))
@@ -69,35 +69,36 @@ final class FlowTests: XCTestCase {
     // 03 · Fill the cart and place an order
     func test03CartAndOrder() {
         app.signIn()
-        app.id("shop_item_1").tap()
+        app.id("shop_item_1").tapWhenThere()
         expect("item_number", shows: "No. 001")
         expect("item_price", shows: "$14.00")
-        app.id("item_qty_increase").tap()
+        app.id("item_qty_increase").tapWhenThere()
         expect("item_qty_value", shows: "2")
-        app.id("item_add_to_cart").tap()
+        app.id("item_add_to_cart").tapWhenThere()
         expect("snackbar_text", shows: "Added to cart")
-        app.id("snackbar_action").tap()
+        app.id("snackbar_action").tapWhenThere()
         expect("cart_total", shows: "$28.00")
         app.openTab("nav_shop")
-        app.scrollTo(app.id("shop_item_5")).tap()
-        app.id("item_add_to_cart").tap()
+        app.scrollTo(app.id("shop_item_5")).tapWhenThere()
+        app.id("item_add_to_cart").tapWhenThere()
         app.back()
         app.openTab("nav_cart")
         expect("cart_total", shows: "$70.00")
-        app.id("cart_line_remove_1").tap()
+        app.id("cart_line_remove_1").tapWhenThere()
         XCTAssertTrue(app.id("cart_line_1").waitToVanish())
         expect("cart_total", shows: "$42.00")
         let orderTotal = app.id("cart_total").label
-        app.id("cart_checkout").tap()
+        checkOutIsFree()
+        app.id("cart_checkout").tapWhenThere()
         expect("dialog_title", shows: "Place this order?")
-        app.id("dialog_dismiss").tap()
+        app.id("dialog_dismiss").tapWhenThere()
         XCTAssertTrue(app.id("dialog").waitToVanish())
         expect("Brass Desk Lamp")
-        app.id("cart_checkout").tap()
-        app.id("dialog_confirm").tap()
+        app.id("cart_checkout").tapWhenThere()
+        app.id("dialog_confirm").tapWhenThere()
         expect("snackbar_text", shows: "Order 1 placed")
         expect("Your cart is empty")
-        app.id("snackbar_action").tap()
+        app.id("snackbar_action").tapWhenThere()
         expect("orders_row_1", shows: "Order 1")
         expect("orders_row_1", shows: orderTotal)
     }
@@ -106,7 +107,7 @@ final class FlowTests: XCTestCase {
     func test04Form() {
         app.signIn()
         app.openLab("lab_form")
-        app.scrollTo(app.id("form_submit")).tap()
+        app.scrollTo(app.id("form_submit")).tapWhenThere()
         for error in ["Enter your name", "Enter a valid email address", "Enter an age from 18 to 120", "Accept the terms to continue"] {
             XCTAssertTrue(app.text(error).exists, "no \"\(error)\"")
         }
@@ -117,22 +118,24 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.id("form_email_error").waitToVanish())
         app.id("form_age").type("34")
         app.id("form_password").type("garden42x")
-        app.id("form_password_toggle").tap()
+        app.id("form_password_toggle").tapWhenThere()
         expect("form_password", shows: "garden42x")
-        app.scrollTo(app.id("form_category")).tap()
-        app.id("form_category_option_garden").tap()
-        app.scrollTo(app.id("form_date")).tap()
+        app.scrollTo(app.id("form_category")).tapWhenThere()
+        app.id("form_category_option_garden").tapWhenThere()
+        app.scrollTo(app.id("form_date")).tapWhenThere()
         let picker = app.id("form_date_picker")
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         let fifteen = picker.buttons.matching(NSPredicate(format: "label ENDSWITH ' 15' OR label == '15'")).firstMatch
         (fifteen.exists ? fifteen : picker.staticTexts["15"]).tap()
-        app.id("form_date_confirm").tap()
+        app.id("form_date_confirm").tapWhenThere()
         expect("15 ")
         app.scrollTo(app.id("form_newsletter")).set(true)
+        // as NthCase's slide sets it: WebDriverAgent sets a slider's value with this very call
+        XCTAssertEqual(app.id("form_budget").elementType, .slider, "form_budget is not a slider to Appium")
         app.id("form_budget").adjust(toNormalizedSliderPosition: 0.6)
         expect("form_budget_value", shows: "$120")
-        app.scrollTo(app.id("form_terms")).tap()
-        app.scrollTo(app.id("form_submit")).tap()
+        app.scrollTo(app.id("form_terms")).tapWhenThere()
+        app.scrollTo(app.id("form_submit")).tapWhenThere()
         expect("Welcome, Sam Rivera")
         expect("Garden aisle")
         expect("snackbar_text", shows: "Welcome to the club")
@@ -144,7 +147,7 @@ final class FlowTests: XCTestCase {
         app.openLab("lab_gestures")
         let status = app.id("gestures_status")
         expect("gestures_status", shows: "Ready")
-        app.id("gestures_tap").tap()
+        app.id("gestures_tap").tapWhenThere()
         XCTAssertTrue(status.waitFor("Tapped"))
         expect("gestures_tap_count", shows: "Taps: 1")
         app.id("gestures_double_tap").doubleTap()
@@ -167,15 +170,15 @@ final class FlowTests: XCTestCase {
         // not in the scenario (NthCase has no two-finger rotation yet), but the pad works
         app.id("gestures_rotate").rotate(.pi / 2, withVelocity: 1.0)
         XCTAssertTrue(status.waitFor("Rotated"))
-        app.scrollTo(app.id("gestures_scroll_target")).tap()
+        app.scrollTo(app.id("gestures_scroll_target")).tapWhenThere()
         XCTAssertTrue(status.waitFor("Found the bottom drawer"))
     }
 
     // 06 · The device: rotate, home, back. Lock and unlock have no XCUITest call; shake has none either (ShakeTests).
     func test06Device() {
         app.signIn()
-        app.id("shop_item_1").tap()
-        app.id("item_add_to_cart").tap()
+        app.id("shop_item_1").tapWhenThere()
+        app.id("item_add_to_cart").tapWhenThere()
         app.back()
         app.openLab("lab_gestures")
         expect("gestures_orientation", shows: "Portrait")
@@ -222,14 +225,14 @@ final class FlowTests: XCTestCase {
         expect("Monday · 8:00–10:00")
         expect("Saturday · 10:00–12:00")
         app.back()
-        app.id("lab_orders").tap()
+        app.id("lab_orders").tapWhenThere()
         expect("No orders yet")
         app.back()
         app.openTab("nav_settings")
         app.scrollTo(app.id("settings_fail_loading")).set(true)
         app.openLab("lab_orders")
         expect("Orders didn't load")
-        app.id("orders_retry").tap()
+        app.id("orders_retry").tapWhenThere()
         expect("No orders yet")
         app.back()
         app.openTab("nav_settings")
@@ -249,20 +252,20 @@ final class FlowTests: XCTestCase {
         expect("tester@mossgrove.test")
         let status = app.id("settings_notifications_status")
         let askedBefore = !status.waitFor("Not allowed. Turn this on to be asked.", timeout: 3)
-        app.id("settings_theme_dark").tap()
+        app.id("settings_theme_dark").tapWhenThere()
         XCTAssertTrue(app.id("settings_theme_dark").isSelected, "Dark is not selected")
-        app.id("settings_theme_system").tap()
-        app.id("settings_notifications").tap()
+        app.id("settings_theme_system").tapWhenThere()
+        app.id("settings_notifications").tapWhenThere()
         if !askedBefore { allowNotificationsIfAsked() }
         XCTAssertTrue(status.waitFor("On: we'll tell you when an order is placed.", timeout: 8),
                       "status: \(status.label) (a refusal from an earlier run on this simulator stops the prompt)")
-        app.id("settings_send_notification").tap()
+        app.id("settings_send_notification").tapWhenThere()
         expect("snackbar_text", shows: "Notification sent")
-        app.scrollTo(app.id("settings_reset")).tap()
+        app.scrollTo(app.id("settings_reset")).tapWhenThere()
         expect("Empty the cart and orders?")
         let cancel = app.id("settings_reset_cancel")
         (cancel.waitForExistence(timeout: 3) ? cancel : app.alerts.buttons["Cancel"]).tap()
-        app.scrollTo(app.id("settings_sign_out"), up: true).tap()
+        app.scrollTo(app.id("settings_sign_out"), up: true).tapWhenThere()
         expect("Test account")
     }
 
@@ -362,24 +365,70 @@ final class FlowTests: XCTestCase {
     /// left from below by the app's own ways to another tab (View cart, Start shopping), then chosen again.
     func testATabOpensAtItsFirstScreen() {
         app.signIn()
-        app.id("shop_item_1").tap()
+        app.id("shop_item_1").tapWhenThere()
         XCTAssertTrue(app.id("item_screen").waitForExistence(timeout: 5))
         XCTAssertFalse(app.id("nav_shop").exists, "the tab bar is on the item page")
-        app.id("item_add_to_cart").tap()
-        app.id("snackbar_action").tap()
+        app.id("item_add_to_cart").tapWhenThere()
+        app.id("snackbar_action").tapWhenThere()
         XCTAssertTrue(app.id("cart_screen").waitForExistence(timeout: 5))
         app.openTab("nav_shop")
         XCTAssertTrue(app.id("shop_screen").waitForExistence(timeout: 5))
         XCTAssertFalse(app.id("item_screen").exists, "Shop came back on the item")
         app.openLab("lab_orders")
         XCTAssertTrue(app.id("orders_empty_action").waitForExistence(timeout: 5))
-        app.id("orders_empty_action").tap()
+        app.id("orders_empty_action").tapWhenThere()
         XCTAssertTrue(app.id("shop_screen").waitForExistence(timeout: 5))
         app.openTab("nav_lab")
         XCTAssertTrue(app.id("lab_screen").waitForExistence(timeout: 5))
         XCTAssertFalse(app.id("orders_screen").exists, "Lab came back on Orders")
         app.openTab("nav_lab")
         XCTAssertTrue(app.id("lab_screen").exists, "choosing Lab again left its first screen")
+    }
+
+    /// Check out is the element a tap reaches: if the banner is up, it is not over Check out. The third CI run's flow
+    /// 03 tapped Check out with the Add-to-cart banner still up, and no dialog came.
+    private func checkOutIsFree(file: StaticString = #filePath, line: UInt = #line) {
+        let checkout = app.id("cart_checkout")
+        XCTAssertTrue(checkout.waitForExistence(timeout: 5), "cart_checkout is not on screen", file: file, line: line)
+        let banner = app.id("snackbar")
+        let bannerUp = banner.exists
+        XCTContext.runActivity(named: "Check out at \(checkout.frame); the banner \(bannerUp ? "is up at \(banner.frame)" : "is not up")") { _ in }
+        if bannerUp {
+            XCTAssertFalse(banner.frame.intersects(checkout.frame), "the banner \(banner.frame) lies over Check out \(checkout.frame)",
+                           file: file, line: line)
+        }
+        XCTAssertTrue(checkout.isHittable, "Check out is not hittable at \(checkout.frame)", file: file, line: line)
+    }
+
+    /// The banner sits above the Cart's checkout panel, never over Check out: straight from Add to cart to the Cart,
+    /// inside the banner's 10 s, Check out is free and opens the dialog.
+    func testTheBannerLeavesCheckOutFree() {
+        app.signIn()
+        app.id("shop_item_1").tapWhenThere()
+        app.id("item_add_to_cart").tapWhenThere()
+        XCTAssertTrue(app.id("snackbar").waitForExistence(timeout: 5), "no banner after Add to cart")
+        app.back()
+        app.openTab("nav_cart")
+        XCTAssertTrue(app.id("snackbar").exists, "the banner from Add to cart was gone before the Cart opened: nothing was checked")
+        checkOutIsFree()
+        app.id("cart_checkout").tapWhenThere()
+        expect("dialog_title", shows: "Place this order?")
+    }
+
+    /// The budget lands on the step the fraction names, as NthCase's `slide` sets it ($0–200, $10 steps): from $50,
+    /// and from wherever the last move left it.
+    func testTheBudgetLandsWhereSlideSetsIt() {
+        app.signIn()
+        app.openLab("lab_form")
+        let slider = app.scrollTo(app.id("form_budget"))
+        expect("form_budget_value", shows: "$50")
+        var wrong: [String] = []
+        for (fraction, shown) in [(0.6, "$120"), (0.3, "$60"), (1.0, "$200"), (0.0, "$0"), (0.45, "$90"), (0.6, "$120")] {
+            slider.adjust(toNormalizedSliderPosition: CGFloat(fraction))
+            let value = app.id("form_budget_value")
+            if !value.waitFor(shown, timeout: 2) { wrong.append("\(fraction) shows \(value.label), not \(shown)") }
+        }
+        XCTAssertEqual(wrong, [], "the budget after each slide")
     }
 
     /// SPEC.md §4: the edge swipe does what Back does.

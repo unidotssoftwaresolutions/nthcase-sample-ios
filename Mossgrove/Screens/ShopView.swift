@@ -74,7 +74,7 @@ struct ShopView: View {
             }
         }
         .screenBackground()
-        .container(TestIds.shopScreen)
+        .screen(TestIds.shopScreen)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { load.start(slow: model.slowLoading, fail: model.failFirstLoad) }
         .onDisappear { load.stop() }

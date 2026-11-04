@@ -41,7 +41,7 @@ struct SlowView: View {
             }
         }
         .screenBackground()
-        .container(TestIds.slowScreen)
+        .screen(TestIds.slowScreen)
         .topBar("Delivery slots", back: true)
         .onAppear { load.start(slow: true, fail: model.failFirstLoad) }
         .onDisappear { load.stop() }

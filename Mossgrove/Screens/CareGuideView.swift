@@ -19,7 +19,7 @@ struct CareGuideView: View {
             CareGuidePage { status = Texts.pageLoaded }
         }
         .screenBackground()
-        .container(TestIds.webviewScreen)
+        .screen(TestIds.webviewScreen)
         .topBar("Care guide", back: true)
     }
 }

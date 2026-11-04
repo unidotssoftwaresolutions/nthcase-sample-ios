@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-/// What the first two CI runs taught, made certain here without a simulator: the text fields' focus rule, the tab
+/// What the first three CI runs taught, made certain here without a simulator: the text fields' focus rule, the tab
 /// bar, the lists' ids, how the UI tests open a link, the UI tests' own lists (the walk's coverage, the ids the tests
 /// name, the screenshots' names), and the workflow's shape, so the next run reports every check together.
 final class CICensusTests: XCTestCase {
@@ -89,8 +89,9 @@ final class CICensusTests: XCTestCase {
         XCTAssertNotNil(try Repo.text("MossgroveUITests/IdWalkTests.swift").range(of: "func testEveryTabIsTheButtonAPersonTaps()"))
     }
 
-    /// A list's id is on a container around its scroll view (`.scrollingList`), never on the ScrollView: on iOS 26
-    /// orders_list and slow_content, set on the ScrollView, did not reach the tree (second CI run).
+    /// A list's id is on a container around its scroll view (`.scrollingList`), never on the ScrollView, one rule for
+    /// all four lists; what decides whether it reaches the tree is the screen around it
+    /// (testEveryScreenRootIsANodeOfItsOwn).
     func testEveryListIdIsOnAContainerAroundItsScrollView() throws {
         for (file, member) in [("ShopView", "shopList"), ("CartView", "cartList"), ("OrdersView", "ordersList"), ("SlowView", "slowContent")] {
             let source = try Repo.text("Mossgrove/Screens/\(file).swift")
@@ -100,6 +101,88 @@ final class CICensusTests: XCTestCase {
                             "\(member) is not the ScrollView's .scrollingList")
         }
         XCTAssertNotNil(try Repo.text("Mossgrove/Components/Components.swift").range(of: "VStack(spacing: 0) { self }.container(id)"))
+    }
+
+    /// Every SwiftUI screen's root is `.screen(id)`, a node of its own: never `.container` alone, which SwiftUI folds
+    /// into the screen's only child, so the screen took the list's node and `orders_list` and `slow_content` were in
+    /// no tree (second and third CI runs). The shapes script that shows it uses the app's own helpers, copied.
+    func testEveryScreenRootIsANodeOfItsOwn() throws {
+        let screens = ["SignInView": "signinScreen", "ShopView": "shopScreen", "ItemView": "itemScreen", "CartView": "cartScreen",
+                       "LabView": "labScreen", "FormView": "formScreen", "GesturesView": "gesturesScreen",
+                       "CareGuideView": "webviewScreen", "SlowView": "slowScreen", "OrdersView": "ordersScreen"]
+        for (file, member) in screens {
+            let source = try Repo.text("Mossgrove/Screens/\(file).swift")
+            XCTAssertEqual(source.components(separatedBy: ".screen(TestIds.\(member))").count - 1, 1, "\(file): its root is not .screen")
+        }
+        for file in try Repo.appSwiftFiles() {
+            let source = try Repo.text("Mossgrove/\(file)")
+            XCTAssertNil(source.range(of: #"\.container\(TestIds\.\w+Screen\)"#, options: .regularExpression), "\(file): a screen root that can fold")
+        }
+        let components = try Repo.text("Mossgrove/Components/Components.swift")
+        let script = try Repo.text("scripts/ax-shapes.swift")
+        let helpers = [
+            "    func container(_ id: String) -> some View {\n        accessibilityElement(children: .contain).accessibilityIdentifier(id)\n    }",
+            "    func scrollingList(_ id: String) -> some View {\n        VStack(spacing: 0) { self }.container(id)\n    }",
+            "    func screen(_ id: String) -> some View {\n        ZStack {\n            ScreenAnchor()\n            self\n        }\n        .container(id)\n    }",
+            "private struct ScreenAnchor: View {\n    var body: some View {\n        Color.clear\n            .frame(width: 0, height: 0)\n"
+                + "            .allowsHitTesting(false)\n            .accessibilityHidden(true)\n    }\n}",
+        ]
+        for helper in helpers {
+            XCTAssertNotNil(components.range(of: helper), "Components.swift: \(helper.prefix(40))")
+            XCTAssertNotNil(script.range(of: helper), "scripts/ax-shapes.swift does not copy \(helper.prefix(40))")
+        }
+    }
+
+    /// The banner sits above the Cart's checkout panel: the panel lifts it by its height while it is on screen. The
+    /// third CI run's flow 03 tapped Check out under the Add-to-cart banner, and no dialog came.
+    func testTheBannerSitsAboveCheckOut() throws {
+        XCTAssertNotNil(try Repo.text("Mossgrove/Components/Snackbar.swift").range(of: ".padding(.bottom, 8 + model.snackbarLift)"))
+        let cart = try Repo.text("Mossgrove/Screens/CartView.swift")
+        let panel = try XCTUnwrap(cart.components(separatedBy: "private var checkoutPanel: some View {").last?.components(separatedBy: "\n    }\n").first)
+        XCTAssertNotNil(panel.range(of: ".onGeometryChange(for: CGFloat.self) { $0.size.height } action: { model.snackbarLift = $0 }"))
+        XCTAssertNotNil(panel.range(of: ".onDisappear { model.snackbarLift = 0 }"))
+        let flows = try Repo.text("MossgroveUITests/FlowTests.swift")
+        XCTAssertNotNil(flows.range(of: "func testTheBannerLeavesCheckOutFree()"))
+        let flow03 = try XCTUnwrap(flows.components(separatedBy: "func test03CartAndOrder() {").last?.components(separatedBy: "\n    }\n").first)
+        XCTAssertNotNil(flow03.range(of: "        checkOutIsFree()\n        app.id(\"cart_checkout\").tapWhenThere()\n        expect(\"dialog_title\""),
+                        "flow 03 taps Check out without checking that it is free")
+    }
+
+    /// The budget is the app's travel slider: to Appium a slider whose frame is the thumb's travel, so a slide to 0.6
+    /// is $120. SwiftUI's Slider gave $130 (third CI run).
+    func testTheBudgetIsATravelSlider() throws {
+        let form = try Repo.text("Mossgrove/Screens/FormView.swift")
+        XCTAssertNil(form.range(of: #"\bSlider\("#, options: .regularExpression), "FormView uses SwiftUI's Slider")
+        XCTAssertNotNil(form.range(of: "StepSlider(value: $budget, range: FormRules.budgetRange, step: FormRules.budgetStep, label: \"Monthly budget\",\n"
+                                    + "                                   id: TestIds.formBudget)"))
+        let components = try Repo.text("Mossgrove/Components/Components.swift")
+        XCTAssertNotNil(components.range(of: "final class TravelSlider: UISlider {"))
+        XCTAssertNotNil(components.range(of: "get { UIAccessibility.convertToScreenCoordinates(travel, in: self) }"))
+        XCTAssertNotNil(components.range(of: "return SliderTrack.travel(lowCentre: low, highCentre: high, height: bounds.height)"))
+        XCTAssertNotNil(components.range(of: "let snapped = SliderTrack.snapped(Double(slider.value), range: parent.range, step: parent.step)"))
+        XCTAssertNotNil(try Repo.text("MossgroveUITests/FlowTests.swift").range(of: "func testTheBudgetLandsWhereSlideSetsIt()"))
+    }
+
+    /// The UI tests act as NthCase does: a tap finds its element first (`tapWhenThere`), Back waits until the screen
+    /// it left is gone, the id walk keeps what it could not do and goes on, and keeps the tree when anything is
+    /// missing. The focus check looks every quarter second. In the third CI run a tap right after Back from Gestures
+    /// found no `lab_webview` and ended the walk, and a field that had the focus was failed for not having it.
+    func testTheUITestsWaitAsNthCaseDoes() throws {
+        for file in ["FlowTests", "IdWalkTests", "ScreenshotTests", "Support"] {
+            let source = try Repo.text("MossgroveUITests/\(file).swift")
+            XCTAssertEqual(try matches(#"\bid\("[a-z0-9_]+"\)\.tap\(\)|scrollTo\(app\.id\("[a-z0-9_]+"\)(, up: true)?\)\.tap\(\)"#, in: source).count, 0,
+                           "\(file): a tap on an id that does not wait for it")
+        }
+        let support = try Repo.text("MossgroveUITests/Support.swift")
+        XCTAssertNotNil(support.range(of: "guard button.tapWhenThere(file: file, line: line) else { return }\n        if !button.waitToVanish(timeout: 5) {"))
+        XCTAssertNotNil(support.range(of: "guard waitForExistence(timeout: timeout) else {"))
+        let focus = try XCTUnwrap(support.components(separatedBy: "private func focusAtEnd(").last?.components(separatedBy: "\n    }\n").first)
+        XCTAssertNil(focus.range(of: "XCTNSPredicateExpectation"), "the focus is waited for by an expectation XCTest polls once a second")
+        XCTAssertNotNil(focus.range(of: "if waitForFocus(until: tapped.addingTimeInterval(3)) { return true }"))
+        let walk = try Repo.text("MossgroveUITests/IdWalkTests.swift")
+        XCTAssertNotNil(walk.range(of: "        Misses.keep()\n        defer { Misses.stopKeeping() }"))
+        XCTAssertNotNil(walk.range(of: "let couldNot = Misses.take()"))
+        XCTAssertNotNil(walk.range(of: "let whole = XCTAttachment(string: app.debugDescription)"))
     }
 
     /// A UI test hands a link to the running app the way the system does (Support's openLinkWhileRunning). Only

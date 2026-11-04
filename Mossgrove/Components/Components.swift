@@ -9,17 +9,44 @@ extension View {
         accessibilityElement(children: .contain).accessibilityIdentifier(id)
     }
 
-    /// A scrolling list and its id (`shop_list`, `cart_list`, `orders_list`, `slow_content`). The id sits on a
-    /// container around the scroll view, never on the ScrollView itself: on iOS 26 an identifier set on the
-    /// ScrollView reached XCUITest's tree for two lists and not for the other two (second CI run). A container
-    /// around a scroll view is the shape `signin_screen` and `form_screen` have, and both were found.
+    /// A scrolling list and its id (`shop_list`, `cart_list`, `orders_list`, `slow_content`): one container around
+    /// the scroll view. SwiftUI folds the two into one node, the scroll view, which carries the id.
     func scrollingList(_ id: String) -> some View {
         VStack(spacing: 0) { self }.container(id)
+    }
+
+    /// A screen's root and its id (`shop_screen` …): always a node of its own, whatever the screen holds.
+    ///
+    /// `.container` alone is not enough for a screen. SwiftUI folds a container whose only child is one more container
+    /// (or a scroll view) into a single node, and the OUTER modifier's id wins. So on Orders with one order and on
+    /// Delivery slots, whose screens hold nothing but their list, `orders_screen` and `slow_screen` took the list's
+    /// node and `orders_list` and `slow_content` were in no tree (second and third CI runs), while Shop and the Cart,
+    /// whose lists have a sibling (the search, the checkout panel), kept both ids. `scripts/ax-shapes.swift` shows the
+    /// folding, and this fix, in SwiftUI's own accessibility tree.
+    ///
+    /// The anchor is a second child that draws nothing, takes no touch and is hidden from accessibility: with two
+    /// children the screen cannot fold into its content, so the screen and its list are two nodes on every screen.
+    func screen(_ id: String) -> some View {
+        ZStack {
+            ScreenAnchor()
+            self
+        }
+        .container(id)
     }
 
     /// The page behind every screen: card stock.
     func screenBackground() -> some View {
         background(Color(Palette.surface).ignoresSafeArea())
+    }
+}
+
+/// The second child of every screen root (`.screen`): no size, no drawing, no touch, no accessibility.
+private struct ScreenAnchor: View {
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 
@@ -141,6 +168,89 @@ struct QuantityStepper: View {
             .foregroundStyle(enabled ? Color(Palette.onSurfaceVariant) : Color(Palette.onSurfaceVariant).opacity(0.38))
             .disabled(!enabled)
             .accessibilityLabel(label)
+        }
+    }
+}
+
+/// A slider in steps, the Monthly budget: UIKit's own slider, whose accessibility frame is the thumb's travel.
+///
+/// XCUITest's `adjust(toNormalizedSliderPosition:)`, which WebDriverAgent calls when NthCase's `slide` sets a slider,
+/// drags the thumb from its place to that fraction of the element's frame. The thumb's centre travels a shorter way
+/// than the frame, by the thumb's width, and the thumb moves by the drag's distance, so the drag overshot: 0.6 from $50
+/// gave $127, and the step made it $130 (third CI run, flow 04). Here the frame Appium and XCUITest read is the
+/// travel itself, from the thumb's centre at $0 to its centre at $200 (SliderTrack.travel): the drag starts on the
+/// thumb's centre and ends where 60 % is, $120. A person's drag is UIKit's, unchanged; it cooperates with the form's
+/// scrolling as the system slider does.
+struct StepSlider: UIViewRepresentable {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let label: String
+    let id: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> TravelSlider {
+        let slider = TravelSlider()
+        slider.minimumValue = Float(range.lowerBound)
+        slider.maximumValue = Float(range.upperBound)
+        slider.value = Float(value)
+        slider.isContinuous = true
+        slider.minimumTrackTintColor = Palette.primary
+        slider.accessibilityLabel = label
+        slider.accessibilityIdentifier = id
+        slider.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .valueChanged)
+        slider.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        slider.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return slider
+    }
+
+    func updateUIView(_ slider: TravelSlider, context: Context) {
+        context.coordinator.parent = self
+        if !slider.isTracking && Double(slider.value) != value { slider.value = Float(value) }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: TravelSlider, context: Context) -> CGSize? {
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? 200
+        return CGSize(width: width, height: max(44, uiView.intrinsicContentSize.height))
+    }
+
+    final class Coordinator: NSObject {
+        var parent: StepSlider
+
+        init(_ parent: StepSlider) { self.parent = parent }
+
+        /// Every move lands on a step: the thumb goes from step to step, and the value is always one.
+        @objc func changed(_ slider: TravelSlider) {
+            let snapped = SliderTrack.snapped(Double(slider.value), range: parent.range, step: parent.step)
+            if Float(snapped) != slider.value { slider.value = Float(snapped) }
+            if snapped != parent.value { parent.value = snapped }
+        }
+    }
+
+    /// UISlider, with the thumb's travel as its accessibility frame, and VoiceOver's swipe up and down moving one step.
+    final class TravelSlider: UISlider {
+        /// The thumb's travel in the slider's own coordinates: from its centre at the lowest value to its centre at
+        /// the highest, the slider's whole height.
+        var travel: CGRect {
+            let track = trackRect(forBounds: bounds)
+            let low = thumbRect(forBounds: bounds, trackRect: track, value: minimumValue).midX
+            let high = thumbRect(forBounds: bounds, trackRect: track, value: maximumValue).midX
+            return SliderTrack.travel(lowCentre: low, highCentre: high, height: bounds.height)
+        }
+
+        override var accessibilityFrame: CGRect {
+            get { UIAccessibility.convertToScreenCoordinates(travel, in: self) }
+            set {}
+        }
+
+        override func accessibilityIncrement() { move(by: 1) }
+        override func accessibilityDecrement() { move(by: -1) }
+
+        private func move(by steps: Float) {
+            let step = Float(FormRules.budgetStep)
+            setValue(min(max(value + steps * step, minimumValue), maximumValue), animated: false)
+            sendActions(for: .valueChanged)
         }
     }
 }
