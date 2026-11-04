@@ -307,41 +307,80 @@ final class CICensusTests: XCTestCase {
 
     // MARK: The workflows
 
+    // AMENDED (CI diet, 2026-11-04): the job moved from build.yml into ci.yml, a reusable workflow that build.yml and
+    // release.yml both call. build.yml runs only the fast checks on a push or a pull request, and asks for the device
+    // suite on "Run workflow" and every Monday; release.yml always asks for it. The checks below read the job's steps
+    // in ci.yml now, read all three files for pins, permissions and timeouts, and read build.yml and release.yml for
+    // when each part runs. Nothing they checked before is checked less.
+    private static let workflows = [".github/workflows/build.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+
+    /// The steps of the device suite: they run only when the caller asks for the suite.
+    private static let deviceSteps = ["simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "tabs_older"]
+
+    /// The files a push or a pull request may change without starting CI.
+    private static let ignored = ["README.md", "CONTRIBUTING.md", "SECURITY.md", "LICENSE", "NOTICE", "docs/screenshots/**"]
+
     /// The test job's steps, as blocks of text, in order.
     private func buildSteps() throws -> [String] {
-        let source = try Repo.text(".github/workflows/build.yml")
+        let source = try Repo.text(".github/workflows/ci.yml") // AMENDED: the job was in build.yml
         let steps = try XCTUnwrap(source.components(separatedBy: "\n    steps:\n").last)
         return steps.components(separatedBy: "\n      - ").map { $0.hasPrefix("      - ") ? String($0.dropFirst(8)) : $0 }
     }
 
+    /// The condition of one step, or "" when it has none.
+    private func stepCondition(_ step: String) throws -> String {
+        try matches(#"(?m)^        if: (.*)$|^if: (.*)$"#, in: step).first.map { $0[1] + $0[2] } ?? ""
+    }
+
     /// Every action is pinned to a commit with its version beside it; the workflows read only, but the release job,
     /// and every job has a timeout.
+    /// AMENDED: a job may also call this repository's own ci.yml by its path, which no one else can move; every step
+    /// has a timeout of its own as well; and these three are the only workflows.
     func testTheWorkflowsArePinnedReadOnlyAndBounded() throws {
-        for path in [".github/workflows/build.yml", ".github/workflows/release.yml"] {
+        for path in Self.workflows {
             let source = try Repo.text(path)
             let uses = try matches(#"(?m)^\s+(?:- )?uses: (\S+)(.*)$"#, in: source)
             XCTAssertFalse(uses.isEmpty, path)
             for use in uses {
+                if use[1].hasPrefix("./") {
+                    XCTAssertEqual(use[1], "./.github/workflows/ci.yml", "\(path): calls \(use[1])")
+                    XCTAssertEqual(use[2], "", "\(path): \(use[1]) has something after it")
+                    XCTAssertNotEqual(path, ".github/workflows/ci.yml", "ci.yml calls itself")
+                    continue
+                }
                 XCTAssertNotNil(use[1].range(of: #"^[\w.-]+/[\w.-]+@[0-9a-f]{40}$"#, options: .regularExpression), "\(path): \(use[1]) is not a commit")
                 XCTAssertNotNil(use[2].range(of: #"^ # v\d"#, options: .regularExpression), "\(path): \(use[1]) has no version beside it")
             }
             XCTAssertTrue(source.contains("\npermissions:\n  contents: read\n"), "\(path) reads only")
             let jobs = try matches(#"\n    runs-on: "#, in: source).count
             XCTAssertEqual(try matches(#"\n    timeout-minutes: \d+\n"#, in: source).count, jobs, "\(path): a job without a timeout")
+            for block in source.components(separatedBy: "\n    steps:\n").dropFirst() {
+                // the steps of one job end where the next job starts
+                let end = block.range(of: #"\n  [^ \n]"#, options: .regularExpression)?.lowerBound ?? block.endIndex
+                let job = "\n" + String(block[..<end])
+                let steps = try matches(#"\n      - "#, in: job).count
+                XCTAssertGreaterThan(steps, 0, path)
+                XCTAssertEqual(try matches(#"\n        timeout-minutes: \d+\n"#, in: job).count, steps, "\(path): a step without a timeout")
+            }
             XCTAssertNil(source.range(of: "continue-on-error"), "\(path): a check that cannot fail its job")
         }
         XCTAssertNil(try Repo.text(".github/workflows/build.yml").range(of: "contents: write"))
+        XCTAssertNil(try Repo.text(".github/workflows/ci.yml").range(of: "contents: write"))
         XCTAssertEqual(try Repo.text(".github/workflows/release.yml").components(separatedBy: "contents: write").count - 1, 1)
+        let files = try FileManager.default.contentsOfDirectory(atPath: Repo.url(".github/workflows").path).sorted()
+        XCTAssertEqual(files, ["build.yml", "ci.yml", "release.yml"])
     }
 
     /// The first run stopped at its first failing check and proved nothing after it. Now every step after the first
     /// check runs whatever came before (`!cancelled()` or `always()`); each check is its own step with its own
     /// timeout; the uploads happen on failure too; and the last step lists every check.
+    /// AMENDED: the device suite's steps, and the uploads of what only they make, run only when the caller asks for
+    /// the suite (`inputs.devices`); MossgroveKit's tests and the zip run every time.
     func testEveryCheckRunsAndIsReported() throws {
         let steps = try buildSteps()
         let first = try XCTUnwrap(steps.firstIndex { $0.contains("swift test --package-path MossgroveKit") })
         for step in steps[(first + 1)...] {
-            let condition = try matches(#"(?m)^        if: (.*)$|^if: (.*)$"#, in: step).first.map { $0[1] + $0[2] } ?? ""
+            let condition = try stepCondition(step)
             XCTAssertTrue(condition.contains("!cancelled()") || condition.contains("always()"),
                           "a step an earlier failure would skip: \(step.prefix(60))")
         }
@@ -365,5 +404,61 @@ final class CICensusTests: XCTestCase {
         for id in ids {
             XCTAssertTrue(summary.contains("${{ steps.\(id).outcome }}"), "the summary does not report \(id)")
         }
+        for step in steps {
+            let condition = try stepCondition(step)
+            if let id = try matches(#"(?m)^        id: (\w+)$"#, in: step).first?[1] {
+                XCTAssertEqual(condition.contains("inputs.devices && "), Self.deviceSteps.contains(id),
+                               "\(id): the device suite's steps, and only they, wait for inputs.devices")
+            }
+        }
+        for name in ["name: screenshots\n", "name: test-results\n"] {
+            let upload = try XCTUnwrap(steps.first { $0.contains(name) })
+            XCTAssertTrue(try stepCondition(upload).contains("inputs.devices && !cancelled()"), "\(name) is uploaded only with the suite")
+        }
+        let zip = try XCTUnwrap(steps.first { $0.contains("name: mossgrove-ios-simulator\n") })
+        XCTAssertFalse(try stepCondition(zip).contains("inputs.devices"), "the zip is uploaded on every run")
+        XCTAssertTrue(steps.contains { $0.contains("VERSION: ${{ inputs.version }}") && $0.contains("package-simulator-app.sh \"$VERSION\"") })
+    }
+
+    /// AMENDED (new with the CI diet): a push to main or a pull request runs the fast checks, unless it changed only
+    /// text that no check reads; "Run workflow" and Monday 03:17 UTC add the device suite; a newer push cancels an
+    /// older run, and nothing else is ever cancelled; a tag runs every check, the suite included, before it publishes.
+    func testTheSuiteRunsWhenAskedWeeklyAndBeforeEveryRelease() throws {
+        let build = try Repo.text(".github/workflows/build.yml")
+        let ignoredBlock = "    paths-ignore:\n" + Self.ignored.map { "      - \($0)\n" }.joined()
+        XCTAssertTrue(build.contains("\non:\n  push:\n    branches: [main]\n" + ignoredBlock + "  pull_request:\n"), "push to main, but for the text")
+        XCTAssertTrue(build.contains("\n  pull_request:\n" + ignoredBlock + "  workflow_dispatch:\n"), "every pull request, but for the text")
+        XCTAssertEqual(try matches(#"(?m)^\s+paths(?:-ignore)?:"#, in: build).count, 2, "one list for each, and no other filter")
+        XCTAssertTrue(build.contains("\n  workflow_dispatch:\n"), "Run workflow")
+        XCTAssertTrue(build.contains("\n  schedule:\n") && build.contains("\n    - cron: \"17 3 * * 1\"\n"), "Monday 03:17 UTC")
+        XCTAssertTrue(build.contains("\nconcurrency:\n  group: build-${{ github.event_name }}-${{ github.ref }}\n"
+                                     + "  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}\n"))
+        XCTAssertTrue(build.contains("\n  ci:\n    uses: ./.github/workflows/ci.yml\n    with:\n"
+                                     + "      version: build-${{ github.run_number }}\n"
+                                     + "      devices: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}\n"))
+
+        // Nothing a test reads is in the list: SPEC.md, nthcase/ with its scenarios' .md files, art/, the app, the scripts.
+        let folder = "MossgroveKit/Tests/MossgroveKitTests"
+        var read: [String] = []
+        for file in try FileManager.default.contentsOfDirectory(atPath: Repo.url(folder).path) where file.hasSuffix(".swift") {
+            read += try matches(#"(?:text|data|url|lines)\("([^"\\]+)"#, in: try Repo.text("\(folder)/\(file)")).map { $0[1] }
+        }
+        XCTAssertTrue(read.contains("SPEC.md") && read.contains("nthcase/scenarios") && read.contains("art/"), "the reader of the tests")
+        for path in read {
+            for pattern in Self.ignored {
+                let hit = pattern.hasSuffix("/**") ? path.hasPrefix(String(pattern.dropLast(2))) : path == pattern
+                XCTAssertFalse(hit, "a test reads \(path), which a push could change without starting CI")
+            }
+        }
+
+        let release = try Repo.text(".github/workflows/release.yml")
+        XCTAssertTrue(release.contains("\non:\n  push:\n    tags:\n      - \"v*\"\n\n"), "a v* tag, and nothing else")
+        XCTAssertNil(release.range(of: "\nconcurrency:"), "a release is never cancelled")
+        XCTAssertNil(try Repo.text(".github/workflows/ci.yml").range(of: "\nconcurrency:"), "nor the suite a release runs")
+        XCTAssertTrue(release.contains("\n  ci:\n    uses: ./.github/workflows/ci.yml\n    with:\n"
+                                       + "      version: ${{ github.ref_name }}\n      devices: true\n"), "the release runs the suite")
+        XCTAssertTrue(release.contains("\n  github-release:\n    needs: ci\n"), "and publishes only after every check")
+        XCTAssertNil(release.range(of: "github-release:\n    needs: ci\n    if:"), "whatever the checks found")
+        XCTAssertTrue(try Repo.text(".github/workflows/ci.yml").contains("\non:\n  workflow_call:\n"), "ci.yml runs only when called")
     }
 }

@@ -227,6 +227,16 @@ art/  nthcase/  docs/screenshots/
 `swift scripts/make-assets.swift` turns `art/` into the asset catalog: the drawings are copied unchanged and kept as
 vectors, and the launcher mark becomes the app icon. `art/` itself is never changed.
 
+## CI
+
+A push to `main` or a pull request runs the fast checks on `macos-latest`: `swift test` and the zipped simulator app,
+in about 4 minutes, with no simulator. A push that changes only `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+`LICENSE`, `NOTICE` or `docs/screenshots/` starts nothing. The device suite runs on a simulator made for the run (the
+screenshots, `MossgroveTests`, the id walk, the flows and the tabs on an older iOS, about 50 minutes) on "Run
+workflow", every Monday at 03:17 UTC, and before every release: a `v*` tag publishes only when the fast checks and the
+suite are green. To start the suite by hand, open Actions → build → Run workflow on `main`, or run
+`gh workflow run build.yml --ref main`. The jobs are in [.github/workflows/ci.yml](.github/workflows/ci.yml).
+
 ## Licence
 
 Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Mossgrove, its items and its drawings are fictional and were

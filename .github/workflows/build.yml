@@ -1,197 +1,49 @@
-# Builds and tests every pull request, every push to main, and on demand.
+# When CI runs, and how much of it. The jobs themselves are in ci.yml, which release.yml calls too.
 #
-# Every action is named by its commit, not by a tag someone can move. The version each SHA was on 2026-11-03 is in the
-# comment beside it. To update one, look up the new version's commit, read what changed, and change both.
+#   a push to main, a pull request    the fast checks only: swift test and the zipped simulator app (about 4 minutes)
+#   "Run workflow", every Monday      the fast checks and the device suite on a simulator: screenshots, unit tests,
+#                                     id walk, flows, tabs on an older iOS (about 50 minutes)
 #
-# The simulator is created for this run and named by its UDID in every step, never `booted`.
+# A push or a pull request that changes only the files below starts nothing: no test, no build step and no script reads
+# them. SPEC.md, nthcase/ (its scenarios' .md files included) and art/ are NOT here: MossgroveKit's tests read them.
 #
-# Every check runs whatever an earlier one found, so one run reports them all: each step after the first check has
-# `if: ${{ !cancelled() }}` (and needs only the steps it really depends on: the simulator, the build). Each check has its own
-# timeout, so a check that hangs fails alone and the rest still run. The results and the screenshots are uploaded on
-# failure too. The last step lists every check's outcome and every failing test, and fails the job if any check did.
+# A newer push to the same branch or pull request cancels the older run. "Run workflow" and the weekly run are never
+# cancelled by a push, and release.yml has no concurrency at all: a release always runs to its end.
 name: build
 
 on:
-  pull_request:
   push:
     branches: [main]
+    paths-ignore:
+      - README.md
+      - CONTRIBUTING.md
+      - SECURITY.md
+      - LICENSE
+      - NOTICE
+      - docs/screenshots/**
+  pull_request:
+    paths-ignore:
+      - README.md
+      - CONTRIBUTING.md
+      - SECURITY.md
+      - LICENSE
+      - NOTICE
+      - docs/screenshots/**
   workflow_dispatch:
+  schedule:
+    # Monday 03:17 UTC: the device suite once a week, so drift in the runner's Xcode or simulators is still caught
+    - cron: "17 3 * * 1"
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  group: build-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 jobs:
-  test:
-    runs-on: macos-latest
-    # room for every step's own bound: every check now runs, even after another one failed
-    timeout-minutes: 145
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Tools
-        run: |
-          xcodebuild -version
-          swift --version
-
-      # The logic, the id census, the walk's coverage, the shared sources and this workflow's shape, on macOS: no
-      # simulator.
-      - name: MossgroveKit tests (swift test)
-        id: kit
-        timeout-minutes: 10
-        run: swift test --package-path MossgroveKit
-
-      - name: Create a simulator for this run
-        id: simulator
-        if: ${{ !cancelled() }}
-        timeout-minutes: 10
-        # an assignment of its own, so a failing script fails the step instead of passing on an empty UDID
-        run: |
-          udid=$(scripts/ci-simulator.sh)
-          echo "udid=$udid" >> "$GITHUB_OUTPUT"
-
-      - name: Build for testing
-        id: build
-        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
-        timeout-minutes: 20
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
-        run: |
-          xcodebuild build-for-testing -project Mossgrove.xcodeproj -scheme Mossgrove \
-            -destination "id=$UDID" -derivedDataPath build/DerivedData
-
-      # First, on the fresh simulator, so Settings shows notifications not yet asked for.
-      - name: Screenshots, light
-        id: shots_light
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 15
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
-        run: scripts/ci-screenshots.sh "$UDID" light out/screenshots
-
-      - name: Screenshots, dark
-        id: shots_dark
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 15
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
-        run: scripts/ci-screenshots.sh "$UDID" dark out/screenshots
-
-      - name: Upload the screenshots
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: screenshots
-          path: out/screenshots/
-          # the screenshot steps check all 24 names and say which are missing; an empty upload is not news
-          if-no-files-found: warn
-          retention-days: 30
-
-      # Unit tests inside the app: the model, the UIKit screen's ids, the alert's ids, the system shake.
-      - name: Unit tests (MossgroveTests)
-        id: unit
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 10
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
-        run: |
-          xcrun simctl ui "$UDID" appearance light   # back from the dark screenshots, whatever they found
-          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
-            -destination "id=$UDID" -derivedDataPath build/DerivedData \
-            -only-testing:MossgroveTests -resultBundlePath build/results/unit.xcresult
-
-      # The id walk: every native id in the tree Appium reads, screen by screen; each walk lists every missing id.
-      - name: Id walk (IdWalkTests)
-        id: walk
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 30
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
-        run: |
-          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
-            -destination "id=$UDID" -derivedDataPath build/DerivedData \
-            -only-testing:MossgroveUITests/IdWalkTests -resultBundlePath build/results/id-walk.xcresult
-
-      # The flows of scenarios 01-11, the tab and Back rules, the banner over Check out and the budget's steps.
-      - name: Flows (FlowTests)
-        id: flows
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        # 17 tests: two more this round (the banner over Check out, the budget at six fractions)
-        timeout-minutes: 40
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
-        run: |
-          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
-            -destination "id=$UDID" -derivedDataPath build/DerivedData \
-            -only-testing:MossgroveUITests/FlowTests -resultBundlePath build/results/flows.xcresult
-
-      # The tab bar on an older iOS as well: the oldest runtime from 17.0 on that this runner has, besides the newest.
-      # Each nav_* id must be on the button a person taps on every iOS the app supports. A runner with only the
-      # newest runtime says so in a notice.
-      - name: Tabs on an older iOS (IdWalkTests, the tab test)
-        id: tabs_older
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 15
-        run: |
-          udid=$(scripts/ci-simulator.sh older)
-          if [[ -z "$udid" ]]; then
-            echo "::notice title=Tabs on an older iOS::this runner has no iOS runtime from 17.0 on besides the newest; the tabs were checked on the newest only"
-            exit 0
-          fi
-          echo "udid=$udid" >> "$GITHUB_OUTPUT"
-          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
-            -destination "id=$udid" -derivedDataPath build/DerivedData \
-            -only-testing:MossgroveUITests/IdWalkTests/testEveryTabIsTheButtonAPersonTaps \
-            -resultBundlePath build/results/tabs-older-ios.xcresult
-
-      - name: Build the simulator app (Release, arm64 and x86_64)
-        id: package
-        if: ${{ !cancelled() }}
-        timeout-minutes: 15
-        run: scripts/package-simulator-app.sh "build-${GITHUB_RUN_NUMBER}"
-
-      - if: ${{ !cancelled() && steps.package.outcome == 'success' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: mossgrove-ios-simulator
-          path: dist/
-          if-no-files-found: error
-          retention-days: 14
-
-      # Every result bundle, red or green: the failing steps' screenshots, the trees, the walks' findings.
-      - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: test-results
-          path: build/results/
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Delete the simulators
-        if: always() && steps.simulator.outputs.udid != ''
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
-          UDID_OLDER: ${{ steps.tabs_older.outputs.udid }}
-        run: |
-          for udid in "$UDID" $UDID_OLDER; do
-            xcrun simctl shutdown "$udid" || true
-            xcrun simctl delete "$udid"
-          done
-
-      - name: Every check and every failing test
-        if: always()
-        env:
-          CHECK_1: "MossgroveKit tests|${{ steps.kit.outcome }}"
-          CHECK_2: "Simulator|${{ steps.simulator.outcome }}"
-          CHECK_3: "Build for testing|${{ steps.build.outcome }}"
-          CHECK_4: "Screenshots, light|${{ steps.shots_light.outcome }}"
-          CHECK_5: "Screenshots, dark|${{ steps.shots_dark.outcome }}"
-          CHECK_6: "Unit tests|${{ steps.unit.outcome }}"
-          CHECK_7: "Id walk|${{ steps.walk.outcome }}"
-          CHECK_8: "Flows|${{ steps.flows.outcome }}"
-          CHECK_9: "Tabs on an older iOS|${{ steps.tabs_older.outcome }}"
-          CHECK_10: "Simulator app zip|${{ steps.package.outcome }}"
-        run: python3 scripts/ci-test-summary.py
+  ci:
+    uses: ./.github/workflows/ci.yml
+    with:
+      version: build-${{ github.run_number }}
+      devices: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
