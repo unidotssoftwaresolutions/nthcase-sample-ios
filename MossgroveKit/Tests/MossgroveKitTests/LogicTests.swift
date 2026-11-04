@@ -324,31 +324,74 @@ final class PasswordEditingTests: XCTestCase {
 final class SliderTrackTests: XCTestCase {
     private let range = FormRules.budgetRange
     private let step = FormRules.budgetStep
+    /// The form's slider in the fourth CI run: 370 points wide at x 16 on a 402-point iPhone, a 37-point thumb.
+    private let minX = 16.0, maxX = 386.0
 
     private func dollars(_ fraction: Double) -> Double {
         SliderTrack.snapped(range.lowerBound + fraction * (range.upperBound - range.lowerBound), range: range, step: step)
     }
 
-    /// The third CI run's case. The form's slider frame was 370 points wide; a thumb of 28 to 38 points leaves a
-    /// travel that much shorter. A drag from $50 (0.25) to 0.6 of the frame then ends at $125–128, and the step makes
-    /// it $130: what flow 04 read.
-    func testADragOnAFrameWiderThanTheTravelOvershoots() {
-        for thumb in [28.0, 32.0, 38.0] {
-            let landed = SliderTrack.dragOnAFrame(from: 0.25, to: 0.6, frameWidth: 370, travelWidth: 370 - thumb)
-            XCTAssertEqual(dollars(landed), 130, "thumb \(thumb)")
+    /// The six slides of `testTheBudgetLandsWhereSlideSetsIt`, each from where the one before left the slider.
+    private func slides(low: Double, high: Double, push: Double = 0) -> [Double] {
+        var value = 50.0
+        return [0.6, 0.3, 1.0, 0.0, 0.45, 0.6].map { target in
+            let from = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+            value = dollars(SliderTrack.xcuiDrag(from: from, to: target, minX: minX, maxX: maxX, low: low, high: high, push: push))
+            return value
         }
     }
 
-    /// With the frame Appium reads equal to the travel, 0.6 is $120 from anywhere, and so is every step.
-    func testADragOnTheTravelLandsWhereTheFractionSays() {
-        for from in [0.0, 0.25, 0.6, 1.0] {
-            XCTAssertEqual(dollars(SliderTrack.dragOnAFrame(from: from, to: 0.6, frameWidth: 332, travelWidth: 332)), 120)
+    /// XCUITest's touch points, as the fourth CI run recorded them: from $50 (0.25) it pressed at 112.12 and lifted
+    /// at 236.55 for 0.6; the ends are 23.25 and 378.75.
+    func testXCUITestTouchesWhereTheRunRecorded() {
+        XCTAssertEqual(SliderTrack.xcuiTouch(fraction: 0.25, minX: minX, maxX: maxX), 112.125, accuracy: 0.001)
+        XCTAssertEqual(SliderTrack.xcuiTouch(fraction: 0.6, minX: minX, maxX: maxX), 236.55, accuracy: 0.001)
+        XCTAssertEqual(SliderTrack.xcuiTouch(fraction: 0.0, minX: minX, maxX: maxX), 23.25, accuracy: 0.001)
+        XCTAssertEqual(SliderTrack.xcuiTouch(fraction: 1.0, minX: minX, maxX: maxX), 378.75, accuracy: 0.001)
+        XCTAssertEqual(SliderTrack.xcuiTouch(fraction: 0.65, minX: minX, maxX: maxX), 254.325, accuracy: 0.001)
+    }
+
+    /// The fourth run read $130, $50, $200, $0, $100, $130. UIKit's own track (thumb centre 18.5 points inside each
+    /// end) explains only the $100; all six need the thumb carried 6–15 points past the finger in the drag's
+    /// direction, which a lift at 500 points a second gives. Neither alone is the run.
+    func testTheFourthRunIsUIKitsTrackPlusAPushPastTheFinger() {
+        let low = minX + 18.5, high = maxX - 18.5
+        XCTAssertEqual(slides(low: low, high: high), [120, 60, 200, 0, 100, 120], "the track alone")
+        XCTAssertEqual(slides(low: low, high: high, push: 10), [130, 50, 200, 0, 100, 130], "the track and a push")
+        XCTAssertNotEqual(slides(low: low, high: high, push: 3), [130, 50, 200, 0, 100, 130])
+    }
+
+    /// The app's thumb has its centre where XCUITest presses, and the value follows the finger alone: every step
+    /// lands from every start.
+    func testOnTheAppsTrackEveryStepLandsFromEveryStart() {
+        let low = minX + Double(SliderTrack.xcuiInset), high = maxX - Double(SliderTrack.xcuiInset)
+        XCTAssertEqual(slides(low: low, high: high), [120, 60, 200, 0, 90, 120])
+        for start in 0...20 {
+            for target in 0...20 {
+                let landed = SliderTrack.xcuiDrag(from: Double(start) / 20, to: Double(target) / 20, minX: minX, maxX: maxX,
+                                                  low: low, high: high)
+                XCTAssertEqual(dollars(landed), Double(target * 10), "from $\(start * 10) to \(Double(target) / 20)")
+            }
         }
-        for target in 0...20 {
-            let fraction = Double(target) / 20
-            XCTAssertEqual(dollars(SliderTrack.dragOnAFrame(from: 0.25, to: fraction, frameWidth: 332, travelWidth: 332)),
-                           Double(target * 10), "\(fraction)")
+    }
+
+    /// UIKit's thumb travels from half its width inside each end of the track, which is where UIKit puts the
+    /// scrubbers: a 14.5-point thumb's centre is where XCUITest presses, at both ends, on any track.
+    func testTheAppsThumbIsAsWideAsXCUITestAssumes() {
+        XCTAssertEqual(SliderTrack.xcuiThumbWidth, 14.5)
+        for (minX, maxX) in [(16.0, 386.0), (0.0, 348.0), (27.0, 375.0)] {
+            XCTAssertEqual(minX + SliderTrack.xcuiThumbWidth / 2, SliderTrack.xcuiTouch(fraction: 0, minX: minX, maxX: maxX), accuracy: 0.0001)
+            XCTAssertEqual(maxX - SliderTrack.xcuiThumbWidth / 2, SliderTrack.xcuiTouch(fraction: 1, minX: minX, maxX: maxX), accuracy: 0.0001)
         }
+    }
+
+    /// A finger that comes down on the thumb off its centre moves it by the finger's travel, not to the finger.
+    func testAThumbHeldOffCentreDoesNotJump() {
+        XCTAssertEqual(SliderTrack.fraction(fingerX: 106, grab: 6, low: 10, high: 190), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(SliderTrack.fraction(fingerX: 100, grab: 0, low: 10, high: 190), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(SliderTrack.fraction(fingerX: -40, grab: 0, low: 10, high: 190), 0)
+        XCTAssertEqual(SliderTrack.fraction(fingerX: 400, grab: 0, low: 10, high: 190), 1)
+        XCTAssertEqual(SliderTrack.fraction(fingerX: 50, grab: 0, low: 10, high: 10), 0, "no travel")
     }
 
     func testEveryValueIsAStepInTheRange() {

@@ -258,6 +258,7 @@ final class IdWalkTests: XCTestCase {
         for step in steps {
             XCTContext.runActivity(named: step.name) { activity in
                 step.act(app)
+                app.answerSavePasswordCard()
                 let couldNot = Misses.take()
                 if !couldNot.isEmpty { problems.append("\(step.name): \(couldNot.joined(separator: "; "))") }
                 // One read of the whole tree first, at once: a spinner's id lasts 3 s, and waiting on each id in turn

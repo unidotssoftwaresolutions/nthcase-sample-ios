@@ -1,5 +1,6 @@
 import MossgroveKit
 import SwiftUI
+import UIKit
 
 /// Join the club: every form control and its validation error. Errors appear after the first Join, then follow
 /// every edit. Each error is a line of its own under its field, so its id is its own element.
@@ -35,9 +36,7 @@ struct FormView: View {
                     aislePicker(error: errors[.category])
                     dateField(error: errors[.date])
 
-                    Toggle(isOn: $form.newsletter) { Text("Email me about new drawers") }
-                        .frame(minHeight: 48)
-                        .accessibilityIdentifier(TestIds.formNewsletter)
+                    newsletterSwitch
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
@@ -85,6 +84,7 @@ struct FormView: View {
     }
 
     private func join() {
+        endEditing()
         submitted = true
         joined = FormRules.welcome(form)
         if joined != nil { model.showSnack(Texts.joined) }
@@ -111,7 +111,12 @@ struct FormView: View {
         VStack(alignment: .leading, spacing: 4) {
             OutlinedField(label: "Password", isError: error != nil, focus: { passwordFocus += 1 }) {
                 HStack {
-                    PasswordField(placeholder: "Password", text: $form.password, shown: showPassword, contentType: .newPassword,
+                    // The club keeps no account, so iOS is not asked to save this password. Marked a new password
+                    // beside the email, it put "Save Password?" over the Lab once the filled form was left, and every
+                    // tap after it missed (fourth CI run, the id walk). With no content type iOS can still guess
+                    // from the hidden text alone; a one-time code is the type apps use to keep a field out of
+                    // Passwords. Android's form gives the system no hint at all. Proven only in CI: the walk names the card if it comes again.
+                    PasswordField(placeholder: "Password", text: $form.password, shown: showPassword, contentType: .oneTimeCode,
                                   id: TestIds.formPassword, focusRequest: passwordFocus)
                     Button { showPassword.toggle() } label: { Art.icon(showPassword ? "eye-off" : "eye").frame(width: 44, height: 44) }
                         .foregroundStyle(Color(Palette.onSurfaceVariant))
@@ -128,7 +133,10 @@ struct FormView: View {
     private func aislePicker(error: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             OutlinedField(label: "Favourite aisle", isError: error != nil) {
-                Button { aisleOpen.toggle() } label: {
+                Button {
+                    endEditing()
+                    aisleOpen.toggle()
+                } label: {
                     HStack {
                         Text(form.aisle?.label ?? "Choose an aisle")
                             .foregroundStyle(form.aisle == nil ? Color(Palette.onSurfaceVariant) : Color(Palette.onSurface))
@@ -179,6 +187,7 @@ struct FormView: View {
                         .accessibilityLabel("Delivery date")
                         .accessibilityValue(form.deliveryDate.map { FormRules.formatDate($0) } ?? "None")
                     Button {
+                        endEditing()
                         pickedDate = form.deliveryDate ?? Date()
                         dateOpen = true
                     } label: { Art.icon("calendar").frame(width: 44, height: 44) }
@@ -189,6 +198,36 @@ struct FormView: View {
             }
             ErrorLine(error: error, id: TestIds.formDateError)
         }
+    }
+
+    /// Email me about new drawers: the whole row is the switch, as the terms row is the checkbox. A tap anywhere on it
+    /// turns it on or off, and a tap is where XCUITest and NthCase tap `form_newsletter`: its hit point lay on the
+    /// label, which a SwiftUI Toggle's label does not take (fourth CI run, flow 04). To Appium and VoiceOver it is the
+    /// system's switch, with its value.
+    private var newsletterSwitch: some View {
+        Button {
+            endEditing()
+            form.newsletter.toggle()
+        } label: {
+            HStack(spacing: 12) {
+                Text("Email me about new drawers").foregroundStyle(Color(Palette.onSurface))
+                Spacer()
+                Toggle("", isOn: $form.newsletter).labelsHidden().allowsHitTesting(false).accessibilityHidden(true)
+            }
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityRepresentation { Toggle("Email me about new drawers", isOn: $form.newsletter) }
+        .accessibilityIdentifier(TestIds.formNewsletter)
+    }
+
+    /// Moving on to a control that takes no typing puts the keyboard away, as a person expects: in the fourth CI run
+    /// the password's keyboard stayed up through the aisle and the date, over the newsletter switch, and both taps on
+    /// the switch landed on the keyboard. The text fields' own focus and the UIKit password field both let go.
+    private func endEditing() {
+        focus = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     /// The date picker opens on the current month. OK keeps the day shown as chosen; Cancel keeps none.
@@ -223,7 +262,10 @@ struct FormView: View {
 
     private func checkbox(error: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Button { form.acceptedTerms.toggle() } label: {
+            Button {
+                endEditing()
+                form.acceptedTerms.toggle()
+            } label: {
                 HStack(spacing: 12) {
                     Text("I accept the club terms").foregroundStyle(Color(Palette.onSurface))
                     Spacer()

@@ -9,8 +9,11 @@ import XCTest
 final class FlowTests: XCTestCase {
     private var app: XCUIApplication!
 
+    /// A flow goes on after a check fails, so one run reports every step that fails, not the first: in the fourth CI
+    /// run flow 04 stopped at the newsletter and said nothing of its budget, terms and Join. A tap on an element that
+    /// never came is reported and skipped (`tapWhenThere`), so the steps after it are still tried.
     override func setUp() {
-        continueAfterFailure = false
+        continueAfterFailure = true
         app = XCUIApplication()
         app.launch()
     }
@@ -122,6 +125,9 @@ final class FlowTests: XCTestCase {
         expect("form_password", shows: "garden42x")
         app.scrollTo(app.id("form_category")).tapWhenThere()
         app.id("form_category_option_garden").tapWhenThere()
+        // Moving on from the password to the aisle puts the keyboard away: in the fourth CI run it stayed up, over the
+        // newsletter switch, and both taps on the switch landed on it.
+        XCTAssertTrue(app.keyboards.firstMatch.waitToVanish(timeout: 3), "the keyboard stayed up after choosing an aisle")
         app.scrollTo(app.id("form_date")).tapWhenThere()
         let picker = app.id("form_date_picker")
         XCTAssertTrue(picker.waitForExistence(timeout: 5))

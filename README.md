@@ -83,15 +83,24 @@ the catalogue against SPEC.md's table, the asset catalog against `art/`, and a *
 second census checks what CI depends on: every text field is focused by a tap anywhere in its box, a password is one
 field whose dots come and go in place, the tab bar is the app's own buttons, every list's id is on a container around
 its scroll view and every screen's root is a node of its own, the banner sits above the Cart's Check out, the budget is
-a slider whose frame is its thumb's travel, the UI tests open a link the way the system does and wait for what they
-tap, the id walk names every id, the UI tests name no id outside the list, and the `build` workflow runs and reports
-every check even after one fails.
+a slider whose thumb sits where XCUITest presses and whose value follows the finger alone, the form puts the keyboard
+away when a person moves on and asks iOS to save no password, the UI tests open a link the way the system does, wait
+for what they tap and name what covers it, the id walk names every id, the UI tests name no id outside the list, and
+the `build` workflow runs and reports every check even after one fails.
 
 `scripts/ax-shapes.swift` shows, on the Mac, the accessibility tree SwiftUI builds for the screens' shapes, and fails
 if a shape the app uses loses an id:
 
 ```bash
 swiftc -O scripts/ax-shapes.swift -o build/ax-shapes && build/ax-shapes
+```
+
+`scripts/slider-replay.sh` runs the app's budget slider in a Mac Catalyst process, with UIKit's own slider and
+accessibility code, and plays XCUITest's slider drag through it: it fails if any of 441 slides (every start, every
+step) misses its step.
+
+```bash
+scripts/slider-replay.sh
 ```
 
 On a simulator (CI runs these on one it creates for the run):
@@ -181,10 +190,15 @@ element's `name` (the `accessibility id` locator). Three needed care, and the id
   focus, and it keeps what was typed when a new editing session begins (UIKit would empty a secure field).
 - **Containers.** A screen root or a card is `.accessibilityElement(children: .contain)`, so its children keep their own
   ids. `.combine` is used only where nothing inside has an id (a shop row, an order row).
-- **The budget slider.** UIKit's slider, whose accessibility frame is the thumb's travel, from its centre at $0 to its
-  centre at $200. NthCase's `slide` sets a slider through XCUITest's `adjust(toNormalizedSliderPosition:)`, which drags
-  to that fraction of the element's frame; on SwiftUI's Slider, whose frame is wider than the travel, 0.6 gave $130,
-  not $120 (third CI run).
+- **The budget slider.** UIKit's slider, so Appium and XCUITest read a slider, its value and its scrubbers. NthCase's
+  `slide` sets a slider through XCUITest's `adjust(toNormalizedSliderPosition:)`, which presses 7.25 points inside the
+  ends of the track and lifts at speed. Its thumb is a bar 14.5 points wide, as Material's slider on Android has a
+  bar, so the thumb's centre is where XCUITest presses, and the app tracks the finger itself, so the value is the step
+  under the finger and nothing moves after it lifts. With UIKit's 37-point thumb and its own tracking, 0.6 gave $130
+  (third and fourth CI runs).
+- **The form and the keyboard.** Choosing an aisle, a date, the newsletter, the slider or the terms puts the keyboard
+  away. The newsletter's whole row is its switch, as the terms row is its checkbox. The club's password is not offered
+  to Passwords: iOS's "Save Password?" card lay over the Lab after the filled form was left (fourth CI run).
 - **The banner.** It sits above the Cart's total and Check out, never over them, so Check out takes its tap while the
   banner's 10 s run.
 - **The alerts.** The checkout dialog is the app's own view, because a SwiftUI alert's buttons cannot carry ids. The
@@ -206,7 +220,7 @@ MossgroveTests/             unit tests inside the app
 MossgroveUITests/           the id walk, the scenario flows, the screenshots
 Config/Info.plist           the URL scheme
 scripts/                    make-assets.swift, package-simulator-app.sh, ci-simulator.sh, ci-screenshots.sh,
-                            ci-test-summary.py
+                            ci-test-summary.py, ax-shapes.swift, slider-replay.sh and .swift
 art/  nthcase/  docs/screenshots/
 ```
 

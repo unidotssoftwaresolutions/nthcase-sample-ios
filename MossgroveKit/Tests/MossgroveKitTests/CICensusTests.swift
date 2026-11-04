@@ -148,19 +148,55 @@ final class CICensusTests: XCTestCase {
                         "flow 03 taps Check out without checking that it is free")
     }
 
-    /// The budget is the app's travel slider: to Appium a slider whose frame is the thumb's travel, so a slide to 0.6
-    /// is $120. SwiftUI's Slider gave $130 (third CI run).
+    /// The budget is a UISlider (Appium and XCUITest read its scrubbers and value) whose 14.5-point thumb has its
+    /// centre where XCUITest presses, 7.25 points inside each end of the track, and whose value follows the finger alone: UIKit's own
+    /// tracking never runs. The fourth CI run read $130, $50, $100, $130 for 0.6, 0.3, 0.45, 0.6: the third run's
+    /// accessibility-frame override changed nothing, as XCUITest reads no frame (SliderTrack).
     func testTheBudgetIsATravelSlider() throws {
         let form = try Repo.text("Mossgrove/Screens/FormView.swift")
         XCTAssertNil(form.range(of: #"\bSlider\("#, options: .regularExpression), "FormView uses SwiftUI's Slider")
         XCTAssertNotNil(form.range(of: "StepSlider(value: $budget, range: FormRules.budgetRange, step: FormRules.budgetStep, label: \"Monthly budget\",\n"
                                     + "                                   id: TestIds.formBudget)"))
         let components = try Repo.text("Mossgrove/Components/Components.swift")
-        XCTAssertNotNil(components.range(of: "final class TravelSlider: UISlider {"))
-        XCTAssertNotNil(components.range(of: "get { UIAccessibility.convertToScreenCoordinates(travel, in: self) }"))
-        XCTAssertNotNil(components.range(of: "return SliderTrack.travel(lowCentre: low, highCentre: high, height: bounds.height)"))
+        let slider = try XCTUnwrap(components.components(separatedBy: "final class TravelSlider: UISlider {").last?
+            .components(separatedBy: "\n/// A full-width filled button").first)
+        XCTAssertNil(slider.range(of: "accessibilityFrame"), "an accessibility frame XCUITest does not read")
+        XCTAssertNil(slider.range(of: "override func trackRect("), "a track rect moves UIKit's scrubbers with it")
+        XCTAssertNotNil(slider.range(of: "let size = CGSize(width: SliderTrack.xcuiThumbWidth, height: 28)"))
+        XCTAssertNotNil(components.range(of: "slider.setThumbImage(thumb, for: .normal)\n        slider.setThumbImage(thumb, for: .highlighted)"))
+        XCTAssertNotNil(slider.range(of: "let fraction = SliderTrack.fraction(fingerX: Double(x), grab: Double(grab), low: Double(travel.minX), high: Double(travel.maxX))"))
+        for touch in ["touchesBegan", "touchesMoved", "touchesEnded", "touchesCancelled"] {
+            let body = try XCTUnwrap(slider.components(separatedBy: "override func \(touch)(").last?.components(separatedBy: "\n        }\n").first)
+            XCTAssertNil(body.range(of: "super."), "\(touch) hands the finger to UIKit's tracking")
+        }
+        XCTAssertNotNil(slider.range(of: "    override func addGestureRecognizer(_ recognizer: UIGestureRecognizer) {\n            recognizer.isEnabled = false"))
+        XCTAssertNotNil(slider.range(of: "gestureRecognizers?.forEach { $0.isEnabled = false }"))
+        XCTAssertNotNil(slider.range(of: "self.point(inside: point, with: event) ? self : nil"))
         XCTAssertNotNil(components.range(of: "let snapped = SliderTrack.snapped(Double(slider.value), range: parent.range, step: parent.step)"))
         XCTAssertNotNil(try Repo.text("MossgroveUITests/FlowTests.swift").range(of: "func testTheBudgetLandsWhereSlideSetsIt()"))
+    }
+
+    /// The form ends editing when a person moves on to a control that takes no typing, the newsletter row is one tap
+    /// target that is a switch to Appium, and the club's password is not offered to Passwords. In the fourth CI run
+    /// the password's keyboard lay over the switch through two taps, and "Save Password?" lay over the Lab after the
+    /// filled form was left.
+    func testTheFormLetsGoOfTheKeyboardAndAsksNoPasswordSave() throws {
+        let form = try Repo.text("Mossgrove/Screens/FormView.swift")
+        XCTAssertNotNil(form.range(of: "UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)"))
+        for opener in ["                Button {\n                    endEditing()\n                    aisleOpen.toggle()",
+                       "                    Button {\n                        endEditing()\n                        pickedDate = form.deliveryDate ?? Date()",
+                       "        Button {\n            endEditing()\n            form.newsletter.toggle()",
+                       "            Button {\n                endEditing()\n                form.acceptedTerms.toggle()",
+                       "    private func join() {\n        endEditing()"] {
+            XCTAssertNotNil(form.range(of: opener), "does not end editing: \(opener.split(separator: "\n").last ?? "")")
+        }
+        XCTAssertNotNil(form.range(of: ".accessibilityRepresentation { Toggle(\"Email me about new drawers\", isOn: $form.newsletter) }\n"
+                                    + "        .accessibilityIdentifier(TestIds.formNewsletter)"))
+        XCTAssertNotNil(form.range(of: "Toggle(\"\", isOn: $form.newsletter).labelsHidden().allowsHitTesting(false).accessibilityHidden(true)"))
+        XCTAssertNil(form.range(of: "Toggle(isOn: $form.newsletter)"), "the newsletter is a Toggle whose label takes no tap")
+        XCTAssertNil(form.range(of: ".newPassword"), "the club's password is offered to Passwords")
+        XCTAssertNil(form.range(of: "contentType: .password"), "the club's password is offered to Passwords")
+        XCTAssertNotNil(try Repo.text("Mossgrove/Components/Components.swift").range(of: "window?.endEditing(true)"))
     }
 
     /// The UI tests act as NthCase does: a tap finds its element first (`tapWhenThere`), Back waits until the screen
@@ -183,6 +219,28 @@ final class CICensusTests: XCTestCase {
         XCTAssertNotNil(walk.range(of: "        Misses.keep()\n        defer { Misses.stopKeeping() }"))
         XCTAssertNotNil(walk.range(of: "let couldNot = Misses.take()"))
         XCTAssertNotNil(walk.range(of: "let whole = XCTAttachment(string: app.debugDescription)"))
+    }
+
+    /// A tap that something covers is not made: the miss names the cover and the walk goes on (fourth CI run: XCUITest's
+    /// own "not hittable" ended the walk with seven steps unchecked). iOS's "Save Password?" card is reported and
+    /// answered wherever it comes up. A switch is set with one tap, never a second at a guessed point.
+    func testTheUITestsNameWhatCoversATap() throws {
+        let support = try Repo.text("MossgroveUITests/Support.swift")
+        let tap = try XCTUnwrap(support.components(separatedBy: "func tapWhenThere(").last?.components(separatedBy: "\n    }\n").first)
+        XCTAssertNotNil(tap.range(of: "app.answerSavePasswordCard(file: file, line: line)"))
+        XCTAssertNotNil(tap.range(of: "if !isHittable && !waitForHittable(timeout: 3) {"))
+        XCTAssertNotNil(tap.range(of: "covered by \\(cover)\",\n                              file: file, line: line)\n                return false"))
+        let set = try XCTUnwrap(support.components(separatedBy: "    func set(_ on: Bool").last?.components(separatedBy: "\n    }\n").first)
+        XCTAssertNil(set.range(of: "coordinate("), "a second tap at a guessed point")
+        XCTAssertEqual(set.components(separatedBy: "tap()").count - 1, 1, "one tap")
+        XCTAssertNotNil(set.range(of: "lies under the keyboard"))
+        let back = try XCTUnwrap(support.components(separatedBy: "    func back(").last?.components(separatedBy: "\n    }\n").first)
+        XCTAssertNotNil(back.range(of: "answerSavePasswordCard(within: 1.5, file: file, line: line)"))
+        XCTAssertNotNil(support.range(of: "NSPredicate(format: \"label == %@\", \"Save Password?\")"))
+        XCTAssertNotNil(try Repo.text("MossgroveUITests/IdWalkTests.swift").range(of: "step.act(app)\n                app.answerSavePasswordCard()"))
+        let flows = try Repo.text("MossgroveUITests/FlowTests.swift")
+        XCTAssertNotNil(flows.range(of: "XCTAssertTrue(app.keyboards.firstMatch.waitToVanish(timeout: 3), \"the keyboard stayed up after choosing an aisle\")"))
+        XCTAssertNotNil(flows.range(of: "    override func setUp() {\n        continueAfterFailure = true"), "a flow stops at its first failed check")
     }
 
     /// A UI test hands a link to the running app the way the system does (Support's openLinkWhileRunning). Only

@@ -93,6 +93,8 @@ extension XCUIApplication {
         if !button.waitToVanish(timeout: 5) {
             Misses.report("Back did not leave the screen: top_bar_back is still there 5 s later", file: file, line: line)
         }
+        // Leaving a filled password field is when iOS asks to save it (fourth CI run, after Join the club).
+        answerSavePasswordCard(within: 1.5, file: file, line: line)
     }
 
     /// Hands a link to the running app the way the system does when a person opens one elsewhere (and as
@@ -151,16 +153,42 @@ extension XCUIElement {
     /// nothing: an element still on its way fails at once ("No matches found"), and in the id walk that ended the
     /// whole walk (third CI run). A miss says what was missing and which screen was there; the walk keeps it and goes
     /// on to its next step.
+    ///
+    /// An element that is there, on screen, and still not hittable is covered. It gets 3 s to come free (a screen
+    /// still settling), then the miss names what covers it and the tap is not made: XCUITest's own tap on it fails
+    /// "not hittable" and ends the test, and in the fourth CI run that ended the id walk at `lab_webview` with seven
+    /// steps unchecked. What covered it was iOS's "Save Password?" card.
     @discardableResult
     func tapWhenThere(timeout: TimeInterval = 8, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let app = XCUIApplication()
+        // the card swallows every tap beneath it, even on an element XCUITest calls hittable
+        app.answerSavePasswordCard(file: file, line: line)
         guard waitForExistence(timeout: timeout) else {
-            let screens = XCUIApplication().identifiers().filter { $0.hasSuffix("_screen") }
+            let screens = app.identifiers().filter { $0.hasSuffix("_screen") }
             Misses.report("could not tap \(description): not in the tree after \(Int(timeout)) s; on screen: "
                           + (screens.isEmpty ? "no screen id" : screens.joined(separator: " ")), file: file, line: line)
             return false
         }
+        // Below the fold, or under a bar, is XCUITest's to scroll into view. Only a cover the tree names stops the tap.
+        if !isHittable && !waitForHittable(timeout: 3) {
+            let cover = app.whatCovers(self)
+            if cover != XCUIApplication.nothingNamed {
+                Misses.report("could not tap \(description) at \(frame): not hittable after 3 s; covered by \(cover)",
+                              file: file, line: line)
+                return false
+            }
+        }
         tap()
         return true
+    }
+
+    func waitForHittable(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if isHittable { return true }
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+        return isHittable
     }
 
     /// The text an element shows: its value for a field, otherwise its label.
@@ -269,12 +297,28 @@ extension XCUIElement {
                 + "\(later); now the focus is on \(holderText); \(keyboard); hittable: \(isHittable); frame: \(frame)", file: file, line: line)
     }
 
-    /// Turns a switch on or off, and checks that it moved.
-    func set(_ on: Bool) {
+    /// Turns a switch on or off with one tap on the element, as a person and NthCase do, and checks that it moved.
+    ///
+    /// One tap, then up to 2 s for the value. No second tap at a guessed point: in the fourth CI run the first tap
+    /// landed on the switch's label (XCUITest's hit point for the element) and the second at 85 % of its width, both
+    /// on the password's keyboard, which lay over the switch. A miss now says where the tap went and what lay there.
+    func set(_ on: Bool, file: StaticString = #filePath, line: UInt = #line) {
         if isOn == on { return }
+        let app = XCUIApplication()
+        let keyboard = app.keyboards.firstMatch
+        if keyboard.exists && keyboard.frame.intersects(frame) {
+            XCTFail("\(identifier) at \(frame) lies under the keyboard at \(keyboard.frame): a tap would land on the keyboard",
+                    file: file, line: line)
+            return
+        }
+        let at = frame
         tap()
-        if isOn != on { coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)).tap() }
-        XCTAssertEqual(isOn, on, "\(identifier) did not turn \(on ? "on" : "off")")
+        let deadline = Date().addingTimeInterval(2)
+        while isOn != on && Date() < deadline { Thread.sleep(forTimeInterval: 0.2) }
+        if isOn != on {
+            XCTFail("\(identifier) did not turn \(on ? "on" : "off") after one tap; frame \(at), value \(String(describing: value)); "
+                    + "hittable: \(isHittable); covered by " + app.whatCovers(self), file: file, line: line)
+        }
     }
 
     var isOn: Bool { (value as? String) == "1" || (value as? Int) == 1 || (value as? Bool) == true }
@@ -288,6 +332,41 @@ extension XCUIElement {
 
     func waitToVanish(timeout: TimeInterval = 5) -> Bool {
         XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: self)], timeout: timeout) == .completed
+    }
+}
+
+extension XCUIApplication {
+    /// What lies over `element`: the keyboard, a sheet or an alert in the app (iOS's "Save Password?" card is a sheet
+    /// in the app's own tree), the banner, or nothing that the tree names.
+    static let nothingNamed = "nothing the tree names"
+
+    func whatCovers(_ element: XCUIElement) -> String {
+        var found: [String] = []
+        let keyboard = keyboards.firstMatch
+        if keyboard.exists && keyboard.frame.intersects(element.frame) { found.append("the keyboard at \(keyboard.frame)") }
+        // a sheet the element is inside (the date picker) is where it lives, not a cover
+        for sheet in sheets.allElementsBoundByIndex where sheet.exists
+            && !sheet.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", element.identifier)).firstMatch.exists {
+            found.append("a sheet \"\(sheet.label)\" at \(sheet.frame)")
+        }
+        for alert in alerts.allElementsBoundByIndex where alert.exists {
+            found.append("an alert \"\(alert.label)\" at \(alert.frame)")
+        }
+        let banner = id("snackbar")
+        if banner.exists && banner.frame.intersects(element.frame) { found.append("the banner at \(banner.frame)") }
+        return found.isEmpty ? Self.nothingNamed : found.joined(separator: "; ")
+    }
+
+    /// iOS's "Save Password?" card, if it is up: it lies over the whole screen until it is answered, and every tap
+    /// beneath it misses. It is reported (the walk keeps it as a problem of the step that left it), then answered
+    /// "Not Now", as a person answers it, so the screens after it are still checked.
+    func answerSavePasswordCard(within wait: TimeInterval = 0, file: StaticString = #filePath, line: UInt = #line) {
+        let card = descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Save Password?")).firstMatch
+        guard wait > 0 ? card.waitForExistence(timeout: wait) : card.exists else { return }
+        Misses.report("iOS asked \"Save Password?\" over \(identifiers().filter { $0.hasSuffix("_screen") }.joined(separator: " ")); "
+                      + "answered Not Now", file: file, line: line)
+        let notNow = buttons["Not Now"].firstMatch
+        if notNow.exists { notNow.tap() }
     }
 }
 

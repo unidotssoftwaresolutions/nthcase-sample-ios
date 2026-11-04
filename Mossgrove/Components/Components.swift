@@ -172,15 +172,24 @@ struct QuantityStepper: View {
     }
 }
 
-/// A slider in steps, the Monthly budget: UIKit's own slider, whose accessibility frame is the thumb's travel.
+/// A slider in steps, the Monthly budget: UIKit's own slider, for what accessibility reports, with the app's own thumb
+/// and the app's own finger tracking.
 ///
 /// XCUITest's `adjust(toNormalizedSliderPosition:)`, which WebDriverAgent calls when NthCase's `slide` sets a slider,
-/// drags the thumb from its place to that fraction of the element's frame. The thumb's centre travels a shorter way
-/// than the frame, by the thumb's width, and the thumb moves by the drag's distance, so the drag overshot: 0.6 from $50
-/// gave $127, and the step made it $130 (third CI run, flow 04). Here the frame Appium and XCUITest read is the
-/// travel itself, from the thumb's centre at $0 to its centre at $200 (SliderTrack.travel): the drag starts on the
-/// thumb's centre and ends where 60 % is, $120. A person's drag is UIKit's, unchanged; it cooperates with the form's
-/// scrolling as the system slider does.
+/// reads the slider's scrubber positions (UIKit gives the ends of its bounds) and presses where it assumes the thumb's
+/// centre is, 7.25 points in from each end (SliderTrack). The fourth CI run read $130, $50, $100 and $130 where $120,
+/// $60, $90 and $120 were due: UIKit's thumb travels from 18.5 points in, and iOS 26's slider carried the thumb on
+/// past a finger that lifted at speed. Neither is left to chance here:
+/// - **The thumb** is a bar 14.5 points wide, as Material's slider on Android has a bar: UIKit's thumb travels from
+///   half its width inside each end of the track, which is where UIKit puts the scrubbers, so its centre is exactly
+///   where XCUITest presses. (A wider track moves the scrubbers with it; only the thumb's width closes the gap.)
+/// - **The value follows the finger alone.** The slider takes its touches itself and sets the value from where the
+///   finger is, on the step nearest it: the thumb jumps to a finger that comes down on the track, keeps its offset
+///   under a finger that comes down on it, and nothing moves once the finger lifts. UIKit's own tracking never runs.
+/// - **It still scrolls with the form.** A drag that starts up or down is the form's scroll, as with the system slider.
+///
+/// Accessibility is UISlider's: Appium and XCUITest see a slider, its value and its scrubbers; VoiceOver's swipe up
+/// and down move one step.
 struct StepSlider: UIViewRepresentable {
     @Binding var value: Double
     let range: ClosedRange<Double>
@@ -197,6 +206,9 @@ struct StepSlider: UIViewRepresentable {
         slider.value = Float(value)
         slider.isContinuous = true
         slider.minimumTrackTintColor = Palette.primary
+        let thumb = TravelSlider.thumbImage()
+        slider.setThumbImage(thumb, for: .normal)
+        slider.setThumbImage(thumb, for: .highlighted)
         slider.accessibilityLabel = label
         slider.accessibilityIdentifier = id
         slider.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .valueChanged)
@@ -207,7 +219,7 @@ struct StepSlider: UIViewRepresentable {
 
     func updateUIView(_ slider: TravelSlider, context: Context) {
         context.coordinator.parent = self
-        if !slider.isTracking && Double(slider.value) != value { slider.value = Float(value) }
+        if !slider.isFollowing && Double(slider.value) != value { slider.value = Float(value) }
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: TravelSlider, context: Context) -> CGSize? {
@@ -228,10 +240,26 @@ struct StepSlider: UIViewRepresentable {
         }
     }
 
-    /// UISlider, with the thumb's travel as its accessibility frame, and VoiceOver's swipe up and down moving one step.
+    /// UISlider with the thumb's centre travelling where XCUITest presses, and the finger tracked by the app.
     final class TravelSlider: UISlider {
-        /// The thumb's travel in the slider's own coordinates: from its centre at the lowest value to its centre at
-        /// the highest, the slider's whole height.
+        /// A finger is down on the slider and the value follows it.
+        private(set) var isFollowing = false
+        /// How far right of the thumb's centre the finger came down, when it came down on the thumb.
+        private var grab: CGFloat = 0
+        /// The value before the finger came down, for a touch the system takes back.
+        private var before: Float = 0
+
+        /// The thumb: an enamel-green bar, 4 points wide and 28 high, in an image as wide as XCUITest assumes a
+        /// thumb to be (SliderTrack.xcuiThumbWidth).
+        static func thumbImage() -> UIImage {
+            let size = CGSize(width: SliderTrack.xcuiThumbWidth, height: 28)
+            return UIGraphicsImageRenderer(size: size).image { _ in
+                Palette.primary.setFill()
+                UIBezierPath(roundedRect: CGRect(x: (size.width - 4) / 2, y: 0, width: 4, height: size.height), cornerRadius: 2).fill()
+            }
+        }
+
+        /// The thumb's travel in the slider's own coordinates: its centre at the lowest value and at the highest.
         var travel: CGRect {
             let track = trackRect(forBounds: bounds)
             let low = thumbRect(forBounds: bounds, trackRect: track, value: minimumValue).midX
@@ -239,10 +267,76 @@ struct StepSlider: UIViewRepresentable {
             return SliderTrack.travel(lowCentre: low, highCentre: high, height: bounds.height)
         }
 
-        override var accessibilityFrame: CGRect {
-            get { UIAccessibility.convertToScreenCoordinates(travel, in: self) }
-            set {}
+        // MARK: The finger, tracked here
+
+        /// UIKit's own recognizers on the slider stay off: the finger is this class's alone.
+        override func addGestureRecognizer(_ recognizer: UIGestureRecognizer) {
+            recognizer.isEnabled = false
+            super.addGestureRecognizer(recognizer)
         }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            gestureRecognizers?.forEach { $0.isEnabled = false }
+        }
+
+        /// Every touch on the slider, the thumb's overhang included, comes here and not to a part of it.
+        override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+            bounds.insetBy(dx: 0, dy: -6).contains(point)
+        }
+
+        override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+            isUserInteractionEnabled && !isHidden && alpha > 0.01 && self.point(inside: point, with: event) ? self : nil
+        }
+
+        /// A drag along the slider is the slider's; a drag up or down is the form's scroll.
+        override func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer, recognizer.view !== self else { return true }
+            let velocity = pan.velocity(in: self)
+            return abs(velocity.y) >= abs(velocity.x)
+        }
+
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+            guard let touch = touches.first else { return }
+            window?.endEditing(true)
+            before = value
+            let x = touch.location(in: self).x
+            let thumb = thumbRect(forBounds: bounds, trackRect: trackRect(forBounds: bounds), value: value)
+            grab = abs(x - thumb.midX) <= thumb.width / 2 ? x - thumb.midX : 0
+            isFollowing = true
+            follow(x)
+        }
+
+        override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+            guard isFollowing, let touch = touches.first else { return }
+            follow(touch.location(in: self).x)
+        }
+
+        override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+            guard isFollowing, let touch = touches.first else { return }
+            follow(touch.location(in: self).x)
+            isFollowing = false
+        }
+
+        /// The form's scroll took the touch: the value goes back to where it was.
+        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+            guard isFollowing else { return }
+            isFollowing = false
+            setValue(before, animated: false)
+            sendActions(for: .valueChanged)
+        }
+
+        private func follow(_ x: CGFloat) {
+            let travel = travel
+            let fraction = SliderTrack.fraction(fingerX: Double(x), grab: Double(grab), low: Double(travel.minX), high: Double(travel.maxX))
+            let raw = Double(minimumValue) + fraction * Double(maximumValue - minimumValue)
+            let next = Float(SliderTrack.snapped(raw, range: Double(minimumValue)...Double(maximumValue), step: FormRules.budgetStep))
+            guard next != value else { return }
+            setValue(next, animated: false)
+            sendActions(for: .valueChanged)
+        }
+
+        // MARK: VoiceOver
 
         override func accessibilityIncrement() { move(by: 1) }
         override func accessibilityDecrement() { move(by: -1) }
