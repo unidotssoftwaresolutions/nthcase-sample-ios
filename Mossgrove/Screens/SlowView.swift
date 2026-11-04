@@ -37,7 +37,7 @@ struct SlowView: View {
                     }
                     .foregroundStyle(Color(Palette.onSurface))
                 }
-                .container(TestIds.slowContent)
+                .scrollingList(TestIds.slowContent)
             }
         }
         .screenBackground()

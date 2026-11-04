@@ -76,12 +76,14 @@ swift test --package-path MossgroveKit
 ```
 
 Runs on the Mac, with no simulator. The app's logic lives in `MossgroveKit`, a local Swift package: the catalogue, the
-cart, the form's rules, deep-link parsing, the gesture and shake rules, navigation. Its tests also check the repository:
+cart, the form's rules, deep-link parsing, the gesture and shake rules, navigation, how a hidden password takes a key.
+Its tests also check the repository:
 the catalogue against SPEC.md's table, the asset catalog against `art/`, and a **source census** that every id in
 `nthcase/test-ids.json` is used on its own screen's source file and nowhere else, with no id outside the list. A
-second census checks what CI depends on: every text field is focused by a tap anywhere in its box, the id walk names
-every id, the UI tests name no id outside the list, and the `build` workflow runs and reports every check even after
-one fails.
+second census checks what CI depends on: every text field is focused by a tap anywhere in its box, a password is one
+field whose dots come and go in place, the tab bar is the app's own buttons, every list's id is on a container around
+its scroll view, the UI tests open a link the way the system does, the id walk names every id, the UI tests name no id
+outside the list, and the `build` workflow runs and reports every check even after one fails.
 
 On a simulator (CI runs these on one it creates for the run):
 
@@ -92,13 +94,13 @@ xcodebuild test -project Mossgrove.xcodeproj -scheme Mossgrove -destination 'id=
 | Target | What it proves |
 | --- | --- |
 | `MossgroveTests` | the app's model, the UIKit screen's ids, the alert's button ids, the shake |
-| `MossgroveUITests/IdWalkTests` | every screen in the state the spec names, with every id of `test-ids.json` in XCUITest's tree, which is the tree Appium reads; Gift cards has none |
-| `MossgroveUITests/FlowTests` | the flows of scenarios 01–11; a tab opens at its first screen; the edge swipe goes back |
+| `MossgroveUITests/IdWalkTests` | every screen in the state the spec names, with every id of `test-ids.json` in XCUITest's tree, which is the tree Appium reads; Gift cards has none; each `nav_*` id is the button a person taps (CI runs this one on an older iOS too, when the runner has one) |
+| `MossgroveUITests/FlowTests` | the flows of scenarios 01–11, typed as NthCase types (no Return unless the scenario says so); the deep link from a cold start, and to the running app signed in and signed out; a tab opens at its first screen; the edge swipe goes back |
 | `MossgroveUITests/ScreenshotTests` | every screen, light and dark |
 
 | | |
 | --- | --- |
-| UI | SwiftUI: a `TabView` with a `NavigationStack` per tab; Settings in UIKit (`UITableView`, `UIAlertController`) |
+| UI | SwiftUI: the app's own tab bar over a `NavigationStack` per tab (not `TabView`, see Test ids); Settings in UIKit (`UITableView`, `UIAlertController`) |
 | Minimum iOS | 17.0 |
 | Web view | `WKWebView` with the bundled `care-guide.html`; http(s) is blocked |
 | Permission | notifications only (`UNUserNotificationCenter`), asked from Settings |
@@ -157,7 +159,14 @@ Every control has a stable test id from one list shared by all five apps: [nthca
 In SwiftUI they are `.accessibilityIdentifier`, in UIKit `accessibilityIdentifier`, so Appium finds them as the
 element's `name` (the `accessibility id` locator). Three needed care, and the id walk proves each:
 
-- **The tab bar.** SwiftUI gives a tab item no identifier, so the app names the `UITabBarController`'s items itself.
+- **The tab bar.** It is the app's own: four SwiftUI buttons, each with its `nav_*` id. SPEC.md §12 names a `TabView`,
+  but SwiftUI gives a tab item no identifier, and on iOS 26 the system bar's buttons do not take one from their
+  `UITabBarItem` either (the second CI run found no `nav_*` id in the tree). The bar is on the four tabs' first screens
+  only, as on Android, and the keyboard covers it, as it covers a system bar.
+- **Lists.** A list's id (`shop_list`, `cart_list`, `orders_list`, `slow_content`) is on a container around its scroll
+  view: on iOS 26 an id set on a `ScrollView` itself did not always reach the tree.
+- **Passwords.** Each password is one UIKit field whose dots come and go in place with Show password, so it keeps its
+  focus, and it keeps what was typed when a new editing session begins (UIKit would empty a secure field).
 - **Containers.** A screen root or a card is `.accessibilityElement(children: .contain)`, so its children keep their own
   ids. `.combine` is used only where nothing inside has an id (a shop row, an order row).
 - **The alerts.** The checkout dialog is the app's own view, because a SwiftUI alert's buttons cannot carry ids. The

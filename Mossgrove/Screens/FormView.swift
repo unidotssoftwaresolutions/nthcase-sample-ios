@@ -14,8 +14,10 @@ struct FormView: View {
     @State private var submitted = false
     @State private var joined: String?
     @FocusState private var focus: Field?
+    /// Each change puts the cursor in the password (PasswordField).
+    @State private var passwordFocus = 0
 
-    private enum Field { case name, email, age, password }
+    private enum Field { case name, email, age }
 
     var body: some View {
         let errors = submitted ? FormRules.errors(form) : [:]
@@ -107,20 +109,10 @@ struct FormView: View {
 
     private func passwordField(error: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            OutlinedField(label: "Password", isError: error != nil, focus: { focus = .password }) {
+            OutlinedField(label: "Password", isError: error != nil, focus: { passwordFocus += 1 }) {
                 HStack {
-                    Group {
-                        if showPassword {
-                            TextField("Password", text: $form.password)
-                        } else {
-                            SecureField("Password", text: $form.password)
-                        }
-                    }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .textContentType(.newPassword)
-                    .focused($focus, equals: .password)
-                    .accessibilityIdentifier(TestIds.formPassword)
+                    PasswordField(placeholder: "Password", text: $form.password, shown: showPassword, contentType: .newPassword,
+                                  id: TestIds.formPassword, focusRequest: passwordFocus)
                     Button { showPassword.toggle() } label: { Art.icon(showPassword ? "eye-off" : "eye").frame(width: 44, height: 44) }
                         .foregroundStyle(Color(Palette.onSurfaceVariant))
                         .accessibilityLabel(showPassword ? Texts.hidePassword : Texts.showPassword)

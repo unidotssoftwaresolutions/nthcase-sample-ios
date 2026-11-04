@@ -1,11 +1,20 @@
 import MossgroveKit
 import SwiftUI
+import UIKit
 
 extension View {
     /// An element that holds others and keeps their ids: a screen root, a card, a line. Without `.contain`, SwiftUI
     /// would hand the identifier down to every child that has none of its own.
     func container(_ id: String) -> some View {
         accessibilityElement(children: .contain).accessibilityIdentifier(id)
+    }
+
+    /// A scrolling list and its id (`shop_list`, `cart_list`, `orders_list`, `slow_content`). The id sits on a
+    /// container around the scroll view, never on the ScrollView itself: on iOS 26 an identifier set on the
+    /// ScrollView reached XCUITest's tree for two lists and not for the other two (second CI run). A container
+    /// around a scroll view is the shape `signin_screen` and `form_screen` have, and both were found.
+    func scrollingList(_ id: String) -> some View {
+        VStack(spacing: 0) { self }.container(id)
     }
 
     /// The page behind every screen: card stock.
@@ -255,6 +264,115 @@ final class LoadModel {
             try? await Task.sleep(for: .seconds(LoadPlan.slowSeconds))
             guard !Task.isCancelled else { return }
             self?.status = LoadPlan.afterWait(fail: fail, attempt: attempt)
+        }
+    }
+}
+
+/// A password field: one UIKit text field whose dots come and go in place with Show / Hide password.
+///
+/// It is not SwiftUI's SecureField and TextField swapped by Show password, for two reasons the second CI run found:
+/// - **Show password swaps nothing.** The same field keeps its focus, its cursor and its text, so the next tap or key
+///   goes where it went before. The run found the TextField that had replaced the SecureField "not hittable" right
+///   after the toggle.
+/// - **What was typed stays.** UIKit empties a secure field on the first key of a new editing session. When anything
+///   starts one (a tap back into the field, or SwiftUI rebuilding the field while it has focus), this field keeps its
+///   text and adds the key, as every other platform does. The run typed "garden42x" into the form and it kept "x":
+///   a new session had begun after "garden42", the moment the field's error line went away.
+///
+/// `focusRequest` is the screen's way to put the cursor here: every change of it focuses the field (a tap anywhere
+/// in its FieldBox, or Return in the field above). SwiftUI's @FocusState reaches no UIKit field.
+struct PasswordField: UIViewRepresentable {
+    let placeholder: String
+    @Binding var text: String
+    let shown: Bool
+    let contentType: UITextContentType
+    var returnKey: UIReturnKeyType = .default
+    let id: String
+    let focusRequest: Int
+    var onSubmit: () -> Void = {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.placeholder = placeholder
+        field.text = text
+        field.font = UIFont.preferredFont(forTextStyle: .body)
+        field.adjustsFontForContentSizeCategory = true
+        field.textColor = Palette.onSurface
+        field.tintColor = Palette.primary
+        field.autocapitalizationType = .none
+        field.autocorrectionType = .no
+        field.spellCheckingType = .no
+        field.smartQuotesType = .no
+        field.smartDashesType = .no
+        field.textContentType = contentType
+        field.isSecureTextEntry = !shown
+        field.returnKeyType = returnKey
+        field.accessibilityLabel = placeholder
+        field.accessibilityIdentifier = id
+        field.delegate = context.coordinator
+        field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+
+    func updateUIView(_ field: UITextField, context: Context) {
+        let coordinator = context.coordinator
+        coordinator.parent = self
+        if field.text != text { field.text = text }
+        if field.isSecureTextEntry == shown {
+            field.isSecureTextEntry = !shown
+            // the same text again, so the cursor stays at its end and the width of the dots is redrawn
+            let current = field.text
+            field.text = nil
+            field.text = current
+            coordinator.fresh = !shown
+        }
+        if focusRequest != coordinator.request {
+            coordinator.request = focusRequest
+            DispatchQueue.main.async { if !field.isFirstResponder { field.becomeFirstResponder() } }
+        }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? 200
+        return CGSize(width: width, height: uiView.intrinsicContentSize.height)
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: PasswordField
+        var request: Int
+        /// An editing session has begun (or the dots came back) and no key has been typed yet: the moment UIKit
+        /// would empty a secure field.
+        var fresh = false
+
+        init(_ parent: PasswordField) {
+            self.parent = parent
+            request = parent.focusRequest
+        }
+
+        @objc func changed(_ field: UITextField) { parent.text = field.text ?? "" }
+
+        func textFieldDidBeginEditing(_ field: UITextField) { fresh = true }
+
+        /// A shown password edits as any field does. A hidden one is edited here (PasswordEditing), so UIKit never
+        /// empties it.
+        func textField(_ field: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            let sessionJustBegan = fresh
+            fresh = false
+            guard field.isSecureTextEntry else { return true }
+            let updated = PasswordEditing.apply(to: field.text ?? "", range: range, replacement: string, sessionJustBegan: sessionJustBegan)
+            field.text = updated
+            parent.text = updated
+            return false
+        }
+
+        func textFieldShouldReturn(_ field: UITextField) -> Bool {
+            field.resignFirstResponder()
+            parent.onSubmit()
+            return false
         }
     }
 }

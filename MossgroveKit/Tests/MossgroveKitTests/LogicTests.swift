@@ -290,3 +290,32 @@ final class NavigationTests: XCTestCase {
         XCTAssertEqual(Texts.version("1.0.0"), "Mossgrove 1.0.0 · spec 1.0 · a sample app for NthCase")
     }
 }
+
+/// A hidden password keeps what was typed when a new editing session begins (the second CI run: "garden42x" kept
+/// only "x").
+final class PasswordEditingTests: XCTestCase {
+    private func key(_ text: String, _ location: Int, _ length: Int, _ replacement: String, fresh: Bool) -> String {
+        PasswordEditing.apply(to: text, range: NSRange(location: location, length: length), replacement: replacement, sessionJustBegan: fresh)
+    }
+
+    func testTypingAddsAtTheCursor() {
+        XCTAssertEqual(key("", 0, 0, "g", fresh: true), "g")
+        XCTAssertEqual(key("garden4", 7, 0, "2", fresh: false), "garden42")
+        XCTAssertEqual(key("garden42", 8, 0, "x", fresh: true), "garden42x")
+        XCTAssertEqual(key("garden42x", 8, 1, "", fresh: false), "garden42")
+        XCTAssertEqual(key("garden42", 0, 8, "", fresh: false), "", "Delete on a selection that is all of it, mid-session")
+    }
+
+    /// UIKit's way of emptying a secure field: the first key of a session replaces all of it.
+    func testANewSessionKeepsTheText() {
+        XCTAssertEqual(key("garden42", 0, 8, "x", fresh: true), "garden42x")
+        XCTAssertEqual(key("garden42", 0, 8, "", fresh: true), "garden4", "Delete removes one character, not all")
+        XCTAssertEqual(key("a", 0, 1, "", fresh: true), "")
+        XCTAssertEqual(key("Mossgrove12", 0, 11, "3", fresh: true), "Mossgrove123")
+    }
+
+    func testARangeOutsideTheTextAddsAtTheEnd() {
+        XCTAssertEqual(key("abc", 5, 0, "d", fresh: false), "abcd")
+        XCTAssertEqual(PasswordEditing.apply(to: "abc", range: NSRange(location: NSNotFound, length: 0), replacement: "d", sessionJustBegan: false), "abcd")
+    }
+}

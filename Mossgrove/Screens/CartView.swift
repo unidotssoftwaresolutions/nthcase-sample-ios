@@ -22,7 +22,7 @@ struct CartView: View {
                     }
                     .padding(16)
                 }
-                .accessibilityIdentifier(TestIds.cartList)
+                .scrollingList(TestIds.cartList)
                 .safeAreaInset(edge: .bottom) { checkoutPanel }
             }
         }

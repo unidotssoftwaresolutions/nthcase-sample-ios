@@ -8,9 +8,9 @@ struct SignInView: View {
     @State private var password = ""
     @State private var showPassword = false
     @State private var error: String?
-    @FocusState private var focus: Field?
-
-    private enum Field { case email, password }
+    @FocusState private var emailFocused: Bool
+    /// Each change puts the cursor in the password (PasswordField).
+    @State private var passwordFocus = 0
 
     var body: some View {
         ScrollView {
@@ -26,33 +26,21 @@ struct SignInView: View {
                 }
                 .padding(.bottom, 8)
 
-                OutlinedField(label: "Email", isError: error != nil, focus: { focus = .email }) {
+                OutlinedField(label: "Email", isError: error != nil, focus: { emailFocused = true }) {
                     TextField("Email", text: $email)
                         .keyboardType(.emailAddress)
                         .textContentType(.username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .submitLabel(.next)
-                        .focused($focus, equals: .email)
-                        .onSubmit { focus = .password }
+                        .focused($emailFocused)
+                        .onSubmit { passwordFocus += 1 }
                         .accessibilityIdentifier(TestIds.signinEmail)
                 }
-                OutlinedField(label: "Password", isError: error != nil, focus: { focus = .password }) {
+                OutlinedField(label: "Password", isError: error != nil, focus: { passwordFocus += 1 }) {
                     HStack {
-                        Group {
-                            if showPassword {
-                                TextField("Password", text: $password)
-                            } else {
-                                SecureField("Password", text: $password)
-                            }
-                        }
-                        .textContentType(.password)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.go)
-                        .focused($focus, equals: .password)
-                        .onSubmit(submit)
-                        .accessibilityIdentifier(TestIds.signinPassword)
+                        PasswordField(placeholder: "Password", text: $password, shown: showPassword, contentType: .password,
+                                      returnKey: .go, id: TestIds.signinPassword, focusRequest: passwordFocus, onSubmit: submit)
                         Button { showPassword.toggle() } label: {
                             Art.icon(showPassword ? "eye-off" : "eye").frame(width: 44, height: 44)
                         }
@@ -109,7 +97,7 @@ struct SignInView: View {
     private func submit() {
         error = Account.signInError(email: email, password: password)
         if error == nil {
-            focus = nil
+            emailFocused = false
             model.signIn(email: email)
         }
     }

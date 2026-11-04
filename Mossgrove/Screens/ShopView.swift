@@ -70,7 +70,7 @@ struct ShopView: View {
                 // as on every screen: a drag on the list lowers the keyboard, nothing else does
                 .scrollDismissesKeyboard(.interactively)
                 .refreshable { await refresh() }
-                .accessibilityIdentifier(TestIds.shopList)
+                .scrollingList(TestIds.shopList)
             }
         }
         .screenBackground()

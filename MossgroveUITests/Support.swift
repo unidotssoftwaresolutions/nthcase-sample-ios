@@ -62,22 +62,43 @@ extension XCUIApplication {
         XCTAssertTrue(id("shop_screen").waitForExistence(timeout: 10), "the shop did not open after sign-in")
     }
 
-    /// A tab, by its id, or by its place in the bar if the id did not reach the tree (the walk reports that).
-    func tab(_ index: Int, _ id: String) -> XCUIElement {
+    /// A tab button, by its id, or by its title if the id did not reach the tree (the walk reports that, and
+    /// testEveryTabIsTheButtonAPersonTaps fails on it). The bar is shown on the four tabs' first screens only, as on
+    /// Android: from a screen below a tab, go Back first, as a person and NthCase do.
+    func tab(_ id: String) -> XCUIElement {
         let byId = self.id(id)
-        return byId.exists ? byId : tabBars.buttons.element(boundBy: index)
+        guard !byId.exists, let title = Self.tabTitles[id] else { return byId }
+        return buttons.matching(NSPredicate(format: "label == %@ OR label BEGINSWITH %@", title, "\(title),")).firstMatch
     }
 
-    func openTab(_ index: Int, _ id: String) { tab(index, id).tap() }
+    static let tabTitles = ["nav_shop": "Shop", "nav_cart": "Cart", "nav_lab": "Lab", "nav_settings": "Settings"]
+
+    func openTab(_ id: String) { tab(id).tap() }
 
     func openLab(_ bench: String) {
-        openTab(2, "nav_lab")
+        openTab("nav_lab")
         let row = id(bench)
         XCTAssertTrue(row.waitForExistence(timeout: 5), "\(bench) is not on the Lab")
         row.tap()
     }
 
     func back() { id("top_bar_back").tap() }
+
+    /// Hands a link to the running app the way the system does when a person opens one elsewhere (and as
+    /// `xcrun simctl openurl` does for NthCase). `XCUIApplication.open(_:)` relaunched the app instead (second CI
+    /// run), and a cold start is signed out. If SpringBoard asks whether to open Mossgrove, this answers Open.
+    func openLinkWhileRunning(_ link: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCUIDevice.shared.system.open(URL(string: link)!)
+        let open = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
+        if open.waitForExistence(timeout: 5) { open.tap() }
+        XCTAssertTrue(wait(for: .runningForeground, timeout: 15), "the app is not in front after \(link)", file: file, line: line)
+    }
+
+    /// A link from a cold start: the app is ended first, then launched with the link, so it starts signed out.
+    func openLinkFromColdStart(_ link: String) {
+        terminate()
+        open(URL(string: link)!)
+    }
 
     /// Scrolls until the element is on screen and can be tapped.
     @discardableResult
@@ -120,23 +141,27 @@ extension XCUIElement {
 
     var hasFocus: Bool { (value(forKey: "hasKeyboardFocus") as? Bool) ?? false }
 
-    /// One tap on the field, as a person and Appium make it: it scrolls the field into view and must focus it. When
-    /// it already holds text, a second tap past the text puts the cursor at its end (a coordinate tap alone would not
-    /// scroll, and could land on the keyboard).
+    /// The field, or something inside it, has the cursor.
+    var holdsFocus: Bool { hasFocus || descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == true")).count > 0 }
+
+    /// A field that already has the cursor is typed into as it is, as Appium's typing does (WebDriverAgent taps a
+    /// field only when it lacks keyboard focus): the app keeps the cursor at the end of what it holds.
+    ///
+    /// Otherwise, one tap on the field, as a person and Appium make it: it scrolls the field into view and must focus
+    /// it. When it already holds text, a second tap past the text puts the cursor at its end (a coordinate tap alone
+    /// would not scroll, and could land on the keyboard).
     ///
     /// Then it waits up to 3 s for the focus, as Appium's typing waits for the keyboard, and never taps again: a field
     /// that one tap does not focus is the app's defect, and the failure says where the focus went instead.
     private func focusAtEnd(file: StaticString, line: UInt) -> Bool {
+        if holdsFocus { return true }
         let holdsText = !typed.isEmpty
         tap()
         if holdsText {
             Thread.sleep(forTimeInterval: 0.6) // not a double tap, which would select a word
             coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
         }
-        let focused = NSPredicate { object, _ in
-            guard let field = object as? XCUIElement else { return false }
-            return field.hasFocus || field.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == true")).count > 0
-        }
+        let focused = NSPredicate { object, _ in (object as? XCUIElement)?.holdsFocus ?? false }
         if XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: focused, object: self)], timeout: 3) == .completed { return true }
         reportNoFocus(file: file, line: line)
         return false

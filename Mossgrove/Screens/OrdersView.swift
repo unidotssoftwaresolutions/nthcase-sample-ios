@@ -42,7 +42,7 @@ struct OrdersView: View {
                     }
                     .foregroundStyle(Color(Palette.onSurface))
                 }
-                .accessibilityIdentifier(TestIds.ordersList)
+                .scrollingList(TestIds.ordersList)
             }
         }
         .screenBackground()

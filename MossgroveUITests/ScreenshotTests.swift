@@ -95,7 +95,7 @@ final class ScreenshotTests: XCTestCase {
 
     func test04Form() {
         app.signIn()
-        app.openTab(2, "nav_lab")
+        app.openTab("nav_lab")
         wait("lab_gift_cards")
         shot("11-lab")
 
@@ -143,7 +143,7 @@ final class ScreenshotTests: XCTestCase {
 
     func test06SettingsAndOrderStates() {
         app.signIn()
-        app.openTab(3, "nav_settings")
+        app.openTab("nav_settings")
         wait("settings_theme")
         shot("22-settings")
 
@@ -175,7 +175,7 @@ final class ScreenshotTests: XCTestCase {
 
     func test08DeepLinkUnknown() {
         app.signIn()
-        app.open(URL(string: "nthcase-sample://item/999")!)
+        app.openLinkWhileRunning("nthcase-sample://item/999")
         wait("item_not_found")
         shot("24-deep-link-unknown")
     }

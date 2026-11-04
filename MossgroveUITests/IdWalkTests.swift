@@ -23,7 +23,7 @@ final class IdWalkTests: XCTestCase {
             app.id("signin_submit").tap()
         },
         Step(name: "Deep link, unknown id", ids: ["item_screen", "item_not_found", "item_not_found_action", "top_bar_title", "top_bar_back"]) { app in
-            app.open(URL(string: "nthcase-sample://item/999")!)
+            app.openLinkFromColdStart("nthcase-sample://item/999")
             app.signIn(expectShop: false)
         },
     ]
@@ -73,7 +73,7 @@ final class IdWalkTests: XCTestCase {
         Step(name: "Lab", ids: ["lab_screen", "lab_form", "lab_gestures", "lab_webview", "lab_slow", "lab_orders", "lab_gift_cards",
                                 "top_bar_title"]) { app in
             app.signIn()
-            app.openTab(2, "nav_lab")
+            app.openTab("nav_lab")
         },
         Step(name: "Join the club", ids: ["form_screen", "form_name", "form_email", "form_age", "form_password", "form_password_toggle",
                                           "form_category", "form_date", "form_newsletter", "form_budget", "form_budget_value",
@@ -136,7 +136,7 @@ final class IdWalkTests: XCTestCase {
                                      "settings_theme", "settings_theme_system", "settings_theme_light", "settings_theme_dark",
                                      "settings_notifications", "settings_notifications_status", "top_bar_title"]) { app in
             app.signIn()
-            app.openTab(3, "nav_settings")
+            app.openTab("nav_settings")
         },
         Step(name: "Settings, lower down", ids: ["settings_send_notification", "settings_slow_loading", "settings_fail_loading",
                                                  "settings_reset", "settings_version"]) { app in
@@ -148,16 +148,17 @@ final class IdWalkTests: XCTestCase {
         Step(name: "Shop, failed", ids: ["shop_error", "shop_retry"]) { app in
             app.id("settings_reset_cancel").tap()
             app.scrollTo(app.id("settings_fail_loading")).set(true)
-            app.openTab(0, "nav_shop")
+            app.openTab("nav_shop")
         },
         Step(name: "Orders, failed", ids: ["orders_error", "orders_retry"]) { app in
             app.openLab("lab_orders")
         },
         Step(name: "Shop, slow", ids: ["shop_loading"]) { app in
-            app.openTab(3, "nav_settings")
+            app.back()
+            app.openTab("nav_settings")
             app.scrollTo(app.id("settings_fail_loading")).set(false)
             app.id("settings_slow_loading").set(true)
-            app.openTab(0, "nav_shop")
+            app.openTab("nav_shop")
         },
         Step(name: "Orders, slow", ids: ["orders_loading"]) { app in
             app.openLab("lab_orders")
@@ -185,6 +186,51 @@ final class IdWalkTests: XCTestCase {
         XCTContext.runActivity(named: "Every identifier in the tree on Gift cards: \(ids)") { _ in }
     }
 
+    /// Each `nav_*` id is on the element a person taps: a button, hittable, labelled with its tab's title ("Cart, 1
+    /// item" with one item in the cart), Selected when its tab is in front, and a tap on it opens that tab's first
+    /// screen. The bar is not on the screens below a tab. Every problem is listed, then the test fails once.
+    func testEveryTabIsTheButtonAPersonTaps() {
+        continueAfterFailure = true
+        let app = XCUIApplication()
+        app.launch()
+        app.signIn()
+        var problems: [String] = []
+        let tabs = [("nav_cart", "Cart", "cart_screen"), ("nav_lab", "Lab", "lab_screen"),
+                    ("nav_settings", "Settings", "settings_screen"), ("nav_shop", "Shop", "shop_screen")]
+        func check(_ id: String, label: String, selected: Bool) {
+            let tab = app.id(id)
+            guard tab.waitForExistence(timeout: 8) else { problems.append("\(id): not in the tree"); return }
+            if tab.elementType != .button { problems.append("\(id): a \(tab.elementType.rawValue), not a button") }
+            if !tab.isHittable { problems.append("\(id): not hittable at \(tab.frame)") }
+            if tab.label != label { problems.append("\(id): labelled \"\(tab.label)\", not \"\(label)\"") }
+            if tab.isSelected != selected { problems.append("\(id): \(selected ? "not " : "")selected") }
+        }
+        XCTContext.runActivity(named: "Each tab, tapped") { _ in
+            for (id, _, screen) in tabs {
+                guard app.id(id).waitForExistence(timeout: 8) else { problems.append("\(id): not in the tree"); continue }
+                app.id(id).tap()
+                if !app.id(screen).waitForExistence(timeout: 5) { problems.append("\(id): a tap did not open \(screen)") }
+                for (other, otherTitle, _) in tabs { check(other, label: otherTitle, selected: other == id) }
+            }
+        }
+        XCTContext.runActivity(named: "The Cart tab says its count") { _ in
+            app.id("shop_item_1").tap()
+            if app.id("nav_shop").exists { problems.append("the tab bar is on the item page") }
+            app.id("item_add_to_cart").tap()
+            app.back()
+            check("nav_cart", label: "Cart, 1 item", selected: false)
+        }
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "the tab bar"
+        shot.lifetime = problems.isEmpty ? .deleteOnSuccess : .keepAlways
+        add(shot)
+        // a missing tab is met on every round of the loop: each problem once, in the order found
+        let listed = problems.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        if !listed.isEmpty {
+            XCTFail("\(listed.count) tab problem(s):\n" + listed.joined(separator: "\n"))
+        }
+    }
+
     /// The walk names every native id of the list at least once (templates by one instance or more).
     func testTheWalkCoversEveryId() {
         let walked = (Self.signedOut + Self.shopAndCart + Self.labBenches + Self.settingsAndStates).flatMap(\.ids)
@@ -207,7 +253,11 @@ final class IdWalkTests: XCTestCase {
         for step in steps {
             XCTContext.runActivity(named: step.name) { activity in
                 step.act(app)
-                let missing = step.ids.filter { !app.id($0).waitForExistence(timeout: 8) }
+                // One read of the whole tree first, at once: a spinner's id lasts 3 s, and waiting on each id in turn
+                // spent them before it was the spinner's turn (second CI run: slow_loading). Only what that read
+                // missed is waited for.
+                let first = Set(app.identifiers())
+                let missing = step.ids.filter { !first.contains($0) && !app.id($0).waitForExistence(timeout: 8) }
                 let tree = app.identifiers()
                 // An id-shaped name that is not in the list would be an id outside the spec.
                 let outside = tree.filter { id in

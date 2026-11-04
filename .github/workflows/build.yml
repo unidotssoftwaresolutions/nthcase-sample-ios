@@ -28,7 +28,7 @@ jobs:
   test:
     runs-on: macos-latest
     # the sum of the steps' own bounds: every check now runs, even after another one failed
-    timeout-minutes: 120
+    timeout-minutes: 135
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -127,6 +127,25 @@ jobs:
             -destination "id=$UDID" -derivedDataPath build/DerivedData \
             -only-testing:MossgroveUITests/FlowTests -resultBundlePath build/results/flows.xcresult
 
+      # The tab bar on an older iOS as well: the oldest runtime from 17.0 on that this runner has, besides the newest.
+      # Each nav_* id must be on the button a person taps on every iOS the app supports. A runner with only the
+      # newest runtime says so in a notice.
+      - name: Tabs on an older iOS (IdWalkTests, the tab test)
+        id: tabs_older
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 15
+        run: |
+          udid=$(scripts/ci-simulator.sh older)
+          if [[ -z "$udid" ]]; then
+            echo "::notice title=Tabs on an older iOS::this runner has no iOS runtime from 17.0 on besides the newest; the tabs were checked on the newest only"
+            exit 0
+          fi
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
+            -destination "id=$udid" -derivedDataPath build/DerivedData \
+            -only-testing:MossgroveUITests/IdWalkTests/testEveryTabIsTheButtonAPersonTaps \
+            -resultBundlePath build/results/tabs-older-ios.xcresult
+
       - name: Build the simulator app (Release, arm64 and x86_64)
         id: package
         if: ${{ !cancelled() }}
@@ -150,13 +169,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Delete the simulator
+      - name: Delete the simulators
         if: always() && steps.simulator.outputs.udid != ''
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
+          UDID_OLDER: ${{ steps.tabs_older.outputs.udid }}
         run: |
-          xcrun simctl shutdown "$UDID" || true
-          xcrun simctl delete "$UDID"
+          for udid in "$UDID" $UDID_OLDER; do
+            xcrun simctl shutdown "$udid" || true
+            xcrun simctl delete "$udid"
+          done
 
       - name: Every check and every failing test
         if: always()
@@ -169,5 +191,6 @@ jobs:
           CHECK_6: "Unit tests|${{ steps.unit.outcome }}"
           CHECK_7: "Id walk|${{ steps.walk.outcome }}"
           CHECK_8: "Flows|${{ steps.flows.outcome }}"
-          CHECK_9: "Simulator app zip|${{ steps.package.outcome }}"
+          CHECK_9: "Tabs on an older iOS|${{ steps.tabs_older.outcome }}"
+          CHECK_10: "Simulator app zip|${{ steps.package.outcome }}"
         run: python3 scripts/ci-test-summary.py

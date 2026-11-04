@@ -1,9 +1,9 @@
 import Foundation
 import XCTest
 
-/// What the first CI run taught, made certain here without a simulator: the text fields' focus rule, the UI tests'
-/// own lists (the walk's coverage, the ids the tests name, the screenshots' names), and the workflow's shape, so the
-/// next run reports every check together.
+/// What the first two CI runs taught, made certain here without a simulator: the text fields' focus rule, the tab
+/// bar, the lists' ids, how the UI tests open a link, the UI tests' own lists (the walk's coverage, the ids the tests
+/// name, the screenshots' names), and the workflow's shape, so the next run reports every check together.
 final class CICensusTests: XCTestCase {
     private func lines(_ path: String) throws -> [String] { try Repo.text(path).components(separatedBy: "\n") }
 
@@ -26,17 +26,28 @@ final class CICensusTests: XCTestCase {
 
     // MARK: Text fields
 
-    /// Every text field is bound to its screen's @FocusState, and sits in a box (FieldBox, or OutlinedField, which
-    /// draws one) whose whole area focuses it. The first CI run stopped on a field a tap did not focus; a field that
-    /// only takes the tap on its 22-point line of text is the defect a person and NthCase meet first.
+    /// Every text field is bound to its screen's @FocusState (a PasswordField to its screen's focus request), and
+    /// sits in a box (FieldBox, or OutlinedField, which draws one) whose whole area focuses it. The first CI run
+    /// stopped on a field a tap did not focus; a field that only takes the tap on its 22-point line of text is the
+    /// defect a person and NthCase meet first.
+    ///
+    /// No SecureField: a password is one PasswordField whose dots come and go in place. The second CI run found the
+    /// field that replaced a SecureField "not hittable" after Show password, and a SecureField that lost "garden42"
+    /// when a new editing session began.
     func testEveryTextFieldIsFocusedFromItsWholeBox() throws {
         var fieldsByFile: [String: Int] = [:]
         for file in try Repo.appSwiftFiles() {
             let source = try lines("Mossgrove/\(file)")
-            for (index, line) in source.enumerated() where line.range(of: #"\b(TextField|SecureField)\("#, options: .regularExpression) != nil {
+            XCTAssertNil(source.joined().range(of: #"\bSecureField\("#, options: .regularExpression), "\(file): a SecureField; use PasswordField")
+            for (index, line) in source.enumerated() where line.range(of: #"\b(TextField|PasswordField)\("#, options: .regularExpression) != nil {
                 fieldsByFile[file, default: 0] += 1
                 let after = source[index..<min(index + 12, source.count)].joined(separator: "\n")
-                XCTAssertNotNil(after.range(of: ".focused($"), "\(file):\(index + 1): a text field with no .focused binding")
+                if line.contains("PasswordField(") {
+                    let call = source[index..<min(index + 2, source.count)].joined(separator: "\n")
+                    XCTAssertNotNil(call.range(of: #"focusRequest: \w+"#, options: .regularExpression), "\(file):\(index + 1): a password with no focus request")
+                } else {
+                    XCTAssertNotNil(after.range(of: ".focused($"), "\(file):\(index + 1): a text field with no .focused binding")
+                }
                 let before = source[max(0, index - 10)..<index]
                 XCTAssertTrue(before.contains { ($0.contains("OutlinedField(") || $0.contains("FieldBox(")) && $0.contains("focus: {") },
                               "\(file):\(index + 1): a text field outside a box that focuses it")
@@ -44,8 +55,67 @@ final class CICensusTests: XCTestCase {
             XCTAssertNil(source.joined().range(of: "scrollDismissesKeyboard(.immediately)"),
                          "\(file): every screen lowers the keyboard the same way, .interactively")
         }
-        XCTAssertEqual(fieldsByFile, ["Screens/SignInView.swift": 3, "Screens/ShopView.swift": 1, "Screens/FormView.swift": 3,
+        XCTAssertEqual(fieldsByFile, ["Screens/SignInView.swift": 2, "Screens/ShopView.swift": 1, "Screens/FormView.swift": 2,
                                       "Screens/GiftCardsView.swift": 1])
+        for (file, id) in [("SignInView", "signinPassword"), ("FormView", "formPassword")] {
+            XCTAssertNotNil(try Repo.text("Mossgrove/Screens/\(file).swift").range(of: "id: TestIds.\(id), focusRequest: "), "\(id) is not a PasswordField")
+        }
+        // The field edits a hidden password through the rule LogicTests checks, and starts each session fresh.
+        let component = try Repo.text("Mossgrove/Components/Components.swift")
+        XCTAssertNotNil(component.range(of: "PasswordEditing.apply(to: field.text ?? \"\", range: range, replacement: string, sessionJustBegan: sessionJustBegan)"))
+        XCTAssertNotNil(component.range(of: "func textFieldDidBeginEditing(_ field: UITextField) { fresh = true }"))
+    }
+
+    // MARK: The tab bar, the lists, the links
+
+    /// The tab bar is the app's own: four SwiftUI buttons, each with its nav_* id, in the spec's order. No TabView and
+    /// no UITabBarItem, whose identifier did not reach the tree on iOS 26 (second CI run). The UI tests find a tab by
+    /// its id, never by the system bar.
+    func testTheTabsAreTheAppsOwnButtons() throws {
+        let tabs = try Repo.text("Mossgrove/App/MainTabs.swift")
+        // the code, without its comments, which say why there is no TabView
+        let code = tabs.components(separatedBy: "\n").map { $0.components(separatedBy: "//")[0] }.joined(separator: "\n")
+        for system in ["TabView", "UITabBar", ".tabItem", "tabBarController"] {
+            XCTAssertNil(code.range(of: system), "MainTabs uses \(system)")
+        }
+        let order = try matches(#"tab\(\.(\w+), icon: "\w+", id: TestIds\.(\w+)\)"#, in: tabs).map { [$0[1], $0[2]] }
+        XCTAssertEqual(order, [["shop", "navShop"], ["cart", "navCart"], ["lab", "navLab"], ["settings", "navSettings"]])
+        XCTAssertNotNil(tabs.range(of: "return Button { model.navigation.select(tab) } label: {"))
+        XCTAssertNotNil(tabs.range(of: ".accessibilityIdentifier(id)\n"))
+        XCTAssertNotNil(tabs.range(of: ".accessibilityLabel(tab == .cart ? cartTabLabel(count: count) : tab.title)"))
+        for file in ["FlowTests", "IdWalkTests", "ScreenshotTests", "Support"] {
+            XCTAssertNil(try Repo.text("MossgroveUITests/\(file).swift").range(of: "tabBars"), "\(file) looks for the system tab bar")
+        }
+        XCTAssertNotNil(try Repo.text("MossgroveUITests/IdWalkTests.swift").range(of: "func testEveryTabIsTheButtonAPersonTaps()"))
+    }
+
+    /// A list's id is on a container around its scroll view (`.scrollingList`), never on the ScrollView: on iOS 26
+    /// orders_list and slow_content, set on the ScrollView, did not reach the tree (second CI run).
+    func testEveryListIdIsOnAContainerAroundItsScrollView() throws {
+        for (file, member) in [("ShopView", "shopList"), ("CartView", "cartList"), ("OrdersView", "ordersList"), ("SlowView", "slowContent")] {
+            let source = try Repo.text("Mossgrove/Screens/\(file).swift")
+            XCTAssertEqual(source.components(separatedBy: "TestIds.\(member)").count - 1, 1, "\(member) is used once")
+            XCTAssertNotNil(source.range(of: "                }\n                .scrollingList(TestIds.\(member))")
+                            ?? source.range(of: ".refreshable { await refresh() }\n                .scrollingList(TestIds.\(member))"),
+                            "\(member) is not the ScrollView's .scrollingList")
+        }
+        XCTAssertNotNil(try Repo.text("Mossgrove/Components/Components.swift").range(of: "VStack(spacing: 0) { self }.container(id)"))
+    }
+
+    /// A UI test hands a link to the running app the way the system does (Support's openLinkWhileRunning). Only
+    /// openLinkFromColdStart may call XCUIApplication.open(_:), which relaunched the app in the second CI run.
+    func testTheUITestsOpenLinksTheWayTheSystemDoes() throws {
+        for file in ["FlowTests", "IdWalkTests", "ScreenshotTests"] {
+            let source = try Repo.text("MossgroveUITests/\(file).swift")
+            XCTAssertNil(source.range(of: ".open(URL("), "\(file) opens a link with XCUIApplication.open")
+        }
+        let support = try Repo.text("MossgroveUITests/Support.swift")
+        XCTAssertEqual(support.components(separatedBy: "\n        open(URL(").count - 1, 1, "XCUIApplication.open is called once, from a cold start")
+        XCTAssertNotNil(support.range(of: "        terminate()\n        open(URL(string: link)!)"))
+        XCTAssertNotNil(support.range(of: "XCUIDevice.shared.system.open(URL(string: link)!)"))
+        let flows = try Repo.text("MossgroveUITests/FlowTests.swift")
+        XCTAssertNotNil(flows.range(of: "func test11DeepLinkWhileRunning()"))
+        XCTAssertNotNil(flows.range(of: "func test11DeepLinkSignedOutWhileRunning()"))
     }
 
     // MARK: The UI tests' own lists
@@ -136,7 +206,8 @@ final class CICensusTests: XCTestCase {
         }
         let checks = ["ci-screenshots.sh \"$UDID\" light", "ci-screenshots.sh \"$UDID\" dark", "-only-testing:MossgroveTests ",
                       "-only-testing:MossgroveUITests/IdWalkTests ", "-only-testing:MossgroveUITests/FlowTests ",
-                      "scripts/package-simulator-app.sh"]
+                      "-only-testing:MossgroveUITests/IdWalkTests/testEveryTabIsTheButtonAPersonTaps ",
+                      "scripts/ci-simulator.sh older", "scripts/package-simulator-app.sh"]
         for check in checks {
             let owners = steps.filter { $0.contains(check) }
             XCTAssertEqual(owners.count, 1, "\(check) is not one step of its own")
@@ -149,7 +220,7 @@ final class CICensusTests: XCTestCase {
         let summary = try XCTUnwrap(steps.last)
         XCTAssertTrue(summary.contains("if: always()") && summary.contains("scripts/ci-test-summary.py"), "the last step is the summary")
         let ids = steps.compactMap { try? matches(#"(?m)^        id: (\w+)$"#, in: $0).first?[1] }
-        XCTAssertEqual(ids, ["kit", "simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "package"])
+        XCTAssertEqual(ids, ["kit", "simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "tabs_older", "package"])
         for id in ids {
             XCTAssertTrue(summary.contains("${{ steps.\(id).outcome }}"), "the summary does not report \(id)")
         }
