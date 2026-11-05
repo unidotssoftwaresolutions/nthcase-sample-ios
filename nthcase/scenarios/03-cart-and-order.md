@@ -3,6 +3,7 @@
 The quantity stepper, the snackbar's action, the cart's arithmetic, a modal dialog, and the order history.
 
 1. Open Mossgrove and sign in with tester@mossgrove.test and Mossgrove123.
+   Expect: The shop opens and the screen shows "Stoneware Mug".
 2. Tap "Stoneware Mug".
    Expect: The item number (item_number) shows "No. 001" and the price (item_price) shows "$14.00".
 3. Tap the increase-quantity button once.

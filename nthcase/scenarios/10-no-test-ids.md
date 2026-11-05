@@ -4,6 +4,7 @@ Nothing on this screen has a test id. NthCase must find each control by its visi
 position: two buttons both say "Choose".
 
 1. Open Mossgrove and sign in with tester@mossgrove.test and Mossgrove123.
+   Expect: The shop opens and the screen shows "Stoneware Mug".
 2. Open the Lab tab and tap "Gift cards".
    Expect: The screen shows "Check a balance".
 3. Type "MOSS-0025" in the Card code field.

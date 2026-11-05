@@ -4,6 +4,7 @@ Verbs that act on the phone rather than on an element. The cart survives rotatio
 may come back as it was or start again (that is the phone's choice), so step 11 signs in only if it has to.
 
 1. Open Mossgrove and sign in with tester@mossgrove.test and Mossgrove123.
+   Expect: The shop opens and the screen shows "Stoneware Mug".
 2. Open "Stoneware Mug" and tap Add to cart.
 3. Open the Lab tab and tap "Gestures".
    Expect: The orientation label (gestures_orientation) shows "Portrait".

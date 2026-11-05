@@ -4,6 +4,7 @@ Search narrows the long list by name or by number; the list scrolls to its last 
 catalogue is up to date.
 
 1. Open Mossgrove and sign in with tester@mossgrove.test and Mossgrove123.
+   Expect: The shop opens and the screen shows "Stoneware Mug".
 2. Type "lamp" in the search field.
    Expect: The count line (shop_count) shows "4 of 40 drawers" and the screen shows "Floor Lamp".
 3. Tap the clear-search button.

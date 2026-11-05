@@ -4,6 +4,7 @@ Text, email, number and password fields, a dropdown, a date picker, a switch, a 
 validation errors. Opened from the Lab tab.
 
 1. Open Mossgrove and sign in with tester@mossgrove.test and Mossgrove123.
+   Expect: The shop opens and the screen shows "Stoneware Mug".
 2. Open the Lab tab and tap "Join the club".
 3. Scroll down and tap Join without filling anything in.
    Expect: The screen shows "Enter your name", "Enter a valid email address", "Enter an age from 18 to 120" and

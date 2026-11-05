@@ -3,6 +3,7 @@
 Loading for 3 seconds, a load that fails once and then succeeds on Try again, and the empty cart and order history.
 
 1. Open Mossgrove and sign in with tester@mossgrove.test and Mossgrove123.
+   Expect: The shop opens and the screen shows "Stoneware Mug".
 2. Open the Lab tab and tap "Delivery slots".
 3. Wait until the delivery slots appear.
    Expect: The screen shows "Monday · 8:00–10:00" and "Saturday · 10:00–12:00".

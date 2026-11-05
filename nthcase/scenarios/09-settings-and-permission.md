@@ -4,6 +4,7 @@ Settings is the screen built with the platform's classic toolkit (XML Views on A
 app's one system permission prompt.
 
 1. Open Mossgrove and sign in with tester@mossgrove.test and Mossgrove123.
+   Expect: The shop opens and the screen shows "Stoneware Mug".
 2. Open the Settings tab.
    Expect: The screen shows "tester@mossgrove.test" and "Not allowed. Turn this on to be asked."
 3. Choose "Dark" under Appearance.

@@ -3,6 +3,7 @@
 The status line at the top of the screen (gestures_status) names the last gesture, in the same words on every app.
 
 1. Open Mossgrove and sign in with tester@mossgrove.test and Mossgrove123.
+   Expect: The shop opens and the screen shows "Stoneware Mug".
 2. Open the Lab tab and tap "Gestures".
    Expect: The status (gestures_status) shows "Ready".
 3. Tap the Tap pad.
