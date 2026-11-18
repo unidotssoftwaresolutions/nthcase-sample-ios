@@ -96,7 +96,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         button(resetCell, Texts.resetData, id: TestIds.settingsReset)
         resetCell.textLabel?.textColor = Palette.error
 
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0"
         versionLabel.text = Texts.version(version)
         versionLabel.font = .preferredFont(forTextStyle: .footnote)
         versionLabel.adjustsFontForContentSizeCategory = true

@@ -19,6 +19,8 @@ public enum Route: Hashable, Sendable {
     /// The item page, with the id as written (a deep link may name an unknown one).
     case item(String)
     case form, gestures, careGuide, slow, orders, giftCards
+    /// The Lobby (1.1): built with SwiftUI, and built again with UIKit.
+    case lobby, lobbyUIKit
 }
 
 /// The tabs and each tab's stack of screens.

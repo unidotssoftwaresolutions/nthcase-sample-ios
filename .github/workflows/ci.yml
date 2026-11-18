@@ -2,7 +2,7 @@
 #
 #   the fast checks, on every run:  MossgroveKit's tests (swift test) and the simulator app, zipped, with SHA256SUMS
 #   the device suite, when asked:   the simulator, the screenshots, the unit tests inside the app, the id walk, the
-#                                   flows and the tabs on an older iOS (`devices: true`)
+#                                   flows, the Lobby and the tabs on an older iOS (`devices: true`)
 #
 # build.yml asks for the device suite on "Run workflow" and on the monthly schedule; release.yml always does. On a push
 # or a pull request the suite's steps are skipped, so no simulator is created and the summary lists them as skipped.
@@ -41,7 +41,7 @@ jobs:
     runs-on: macos-latest
     # room for every step's own bound when the device suite runs: every check runs, even after another one failed.
     # Without the suite the job takes about 4 minutes.
-    timeout-minutes: 145
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 5
@@ -102,7 +102,7 @@ jobs:
         with:
           name: screenshots
           path: out/screenshots/
-          # the screenshot steps check all 24 names and say which are missing; an empty upload is not news
+          # the screenshot steps check all 31 names and say which are missing; an empty upload is not news
           if-no-files-found: warn
           retention-days: 30
 
@@ -121,10 +121,11 @@ jobs:
             -only-testing:MossgroveTests -resultBundlePath build/results/unit.xcresult
 
       # The id walk: every native id in the tree Appium reads, screen by screen; each walk lists every missing id.
+      # Two more walks with 1.1: the Lobby, in SwiftUI and in UIKit.
       - name: Id walk (IdWalkTests)
         id: walk
         if: ${{ inputs.devices && !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 30
+        timeout-minutes: 45
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |
@@ -144,6 +145,24 @@ jobs:
           xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
             -destination "id=$UDID" -derivedDataPath build/DerivedData \
             -only-testing:MossgroveUITests/FlowTests -resultBundlePath build/results/flows.xcresult
+
+      # The Lobby (1.1), both builds: the scrollers' order in the tree with the pager on and off, the pager and Saved
+      # absent when they must be, and the gesture NthCase's iOS reach makes (WebDriverAgent's `mobile: scroll`),
+      # injected across the Top 10 row and row 1. Each finding is a "LOBBY:" line, copied to the run's summary page.
+      - name: Lobby (LobbyTests)
+        id: lobby
+        if: ${{ inputs.devices && !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 20
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -o pipefail
+          status=0
+          xcodebuild test-without-building -project Mossgrove.xcodeproj -scheme Mossgrove \
+            -destination "id=$UDID" -derivedDataPath build/DerivedData \
+            -only-testing:MossgroveUITests/LobbyTests -resultBundlePath build/results/lobby.xcresult 2>&1 | tee build/lobby.log || status=$?
+          { echo "## What the Lobby showed"; echo; grep -o 'LOBBY: .*' build/lobby.log | awk '!seen[$0]++' | sed 's/^/- /'; } >> "$GITHUB_STEP_SUMMARY" || true
+          exit "$status"
 
       # The tab bar on an older iOS as well: the oldest runtime from 17.0 on that this runner has, besides the newest.
       # Each nav_* id must be on the button a person taps on every iOS the app supports. A runner with only the
@@ -216,6 +235,7 @@ jobs:
           CHECK_6: "Unit tests|${{ steps.unit.outcome }}"
           CHECK_7: "Id walk|${{ steps.walk.outcome }}"
           CHECK_8: "Flows|${{ steps.flows.outcome }}"
-          CHECK_9: "Tabs on an older iOS|${{ steps.tabs_older.outcome }}"
-          CHECK_10: "Simulator app zip|${{ steps.package.outcome }}"
+          CHECK_9: "Lobby|${{ steps.lobby.outcome }}"
+          CHECK_10: "Tabs on an older iOS|${{ steps.tabs_older.outcome }}"
+          CHECK_11: "Simulator app zip|${{ steps.package.outcome }}"
         run: python3 scripts/ci-test-summary.py

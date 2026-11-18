@@ -62,6 +62,8 @@ struct MainTabs: View {
         case .slow: SlowView()
         case .orders: OrdersView()
         case .giftCards: GiftCardsView()
+        case .lobby: LobbyView()
+        case .lobbyUIKit: LobbyUIKitScreen()
         }
     }
 }

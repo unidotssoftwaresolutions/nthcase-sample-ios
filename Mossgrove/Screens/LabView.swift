@@ -19,6 +19,8 @@ struct LabView: View {
         Bench(id: TestIds.labSlow, route: .slow, title: "Delivery slots", body: "Loads for 3 seconds, then shows its content"),
         Bench(id: TestIds.labOrders, route: .orders, title: "Orders", body: "An empty state, and an error state with retry"),
         Bench(id: TestIds.labGiftCards, route: .giftCards, title: "Gift cards", body: "No test ids at all: find things by their text"),
+        Bench(id: TestIds.labLobby, route: .lobby, title: Lobby.title, body: Lobby.labLine),
+        Bench(id: TestIds.labLobbyViews, route: .lobbyUIKit, title: Lobby.titleUIKit, body: Lobby.labLineUIKit),
     ]
 
     var body: some View {

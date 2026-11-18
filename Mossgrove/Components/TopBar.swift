@@ -4,9 +4,10 @@ import UIKit
 
 extension View {
     /// The top bar: the screen's title, and Back on screens below a tab. `tagged: false` leaves out the ids, for the
-    /// gift-cards screen.
-    func topBar(_ title: String, back: Bool = false, tagged: Bool = true) -> some View {
-        modifier(TopBar(title: title, back: back, tagged: tagged))
+    /// gift-cards screen. `onBack` is asked first when Back is tapped: it answers true when it went back itself (the
+    /// Lobby closes a panel), false to leave the screen.
+    func topBar(_ title: String, back: Bool = false, tagged: Bool = true, onBack: (() -> Bool)? = nil) -> some View {
+        modifier(TopBar(title: title, back: back, tagged: tagged, onBack: onBack))
     }
 
     /// An accessibility identifier, or none.
@@ -22,6 +23,7 @@ private struct TopBar: ViewModifier {
     let title: String
     let back: Bool
     let tagged: Bool
+    let onBack: (() -> Bool)?
     @Environment(\.dismiss) private var dismiss
 
     func body(content: Content) -> some View {
@@ -38,7 +40,7 @@ private struct TopBar: ViewModifier {
                 }
                 if back {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button { dismiss() } label: { Image(systemName: "chevron.backward").fontWeight(.semibold) }
+                        Button { if onBack?() != true { dismiss() } } label: { Image(systemName: "chevron.backward").fontWeight(.semibold) }
                             .accessibilityLabel("Back")
                             .testId(tagged ? TestIds.topBarBack : nil)
                     }

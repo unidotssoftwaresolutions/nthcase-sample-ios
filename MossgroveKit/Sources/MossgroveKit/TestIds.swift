@@ -77,6 +77,54 @@ public enum TestIds {
     public static let labSlow = "lab_slow"
     public static let labOrders = "lab_orders"
     public static let labGiftCards = "lab_gift_cards"
+    public static let labLobby = "lab_lobby"
+    public static let labLobbyViews = "lab_lobby_views"
+
+    // lobby (1.1): both builds, SwiftUI and UIKit, carry every one
+    public static let lobbyScreen = "lobby_screen"
+    public static let lobbyTouchLog = "lobby_touch_log"
+    public static let lobbyTouchCount = "lobby_touch_count"
+    public static let lobbyTouchReset = "lobby_touch_reset"
+    public static let lobbySavedDelay = "lobby_saved_delay"
+    public static func lobbySavedDelayChoice(_ s: Int) -> String { "lobby_saved_delay_\(s)" }
+    public static let lobbyPagerShown = "lobby_pager_shown"
+    public static let lobbyPager = "lobby_pager"
+    public static func lobbyBanner(_ n: Int) -> String { "lobby_banner_\(n)" }
+    public static let lobbyPagerPosition = "lobby_pager_position"
+    public static let lobbyPagerAuto = "lobby_pager_auto"
+    public static let lobbyTopRowPosition = "lobby_top_row_position"
+    public static let lobbyTopRow = "lobby_top_row"
+    public static func lobbyTopRowTile(_ m: Int) -> String { "lobby_top_row_tile_\(m)" }
+    public static let lobbyPage = "lobby_page"
+    public static let lobbyChips = "lobby_chips"
+    public static func lobbyChip(_ n: Int) -> String { "lobby_chip_\(n)" }
+    public static func lobbyRow(_ n: Int) -> String { "lobby_row_\(n)" }
+    public static func lobbyRowPosition(_ n: Int) -> String { "lobby_row_\(n)_position" }
+    public static func lobbyRowTile(_ n: Int, _ m: Int) -> String { "lobby_row_\(n)_tile_\(m)" }
+    public static let lobbyGrid = "lobby_grid"
+    public static func lobbyGridCell(_ n: Int) -> String { "lobby_grid_cell_\(n)" }
+    public static let lobbyInnerList = "lobby_inner_list"
+    public static func lobbyInnerRow(_ n: Int) -> String { "lobby_inner_row_\(n)" }
+    public static let lobbyBoard = "lobby_board"
+    public static let lobbyBoardPosition = "lobby_board_position"
+    public static func lobbyBoardCell(_ col: String, _ row: Int) -> String { "lobby_board_cell_\(col)\(row)" }
+    public static let lobbyFooter = "lobby_footer"
+    public static let lobbyBar = "lobby_bar"
+    public static let lobbyBarHome = "lobby_bar_home"
+    public static let lobbyBarLive = "lobby_bar_live"
+    public static let lobbyBarSaved = "lobby_bar_saved"
+    public static let lobbyBarOffers = "lobby_bar_offers"
+    public static let lobbySavedScreen = "lobby_saved_screen"
+    public static let lobbyDetail = "lobby_detail"
+    public static let lobbyDetailBack = "lobby_detail_back"
+    public static let lobbyPromo = "lobby_promo"
+    public static let lobbyPromoBack = "lobby_promo_back"
+    public static let lobbySheet = "lobby_sheet"
+    public static let lobbySheetTitle = "lobby_sheet_title"
+    public static let lobbySheetOpen = "lobby_sheet_open"
+    public static let lobbySheetPreview = "lobby_sheet_preview"
+    public static let lobbySheetSaved = "lobby_sheet_saved"
+    public static let lobbySheetRate = "lobby_sheet_rate"
 
     // form
     public static let formScreen = "form_screen"
@@ -162,4 +210,5 @@ public enum TestIds {
     public static let settingsReset = "settings_reset"
     public static let settingsResetConfirm = "settings_reset_confirm"
     public static let settingsResetCancel = "settings_reset_cancel"
-    public static let settingsVersion = "settings_version"}
+    public static let settingsVersion = "settings_version"
+}

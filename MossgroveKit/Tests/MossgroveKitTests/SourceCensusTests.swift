@@ -60,7 +60,21 @@ final class SourceCensusTests: XCTestCase {
         case "slow": return "Screens/SlowView.swift"
         case "orders": return "Screens/OrdersView.swift"
         case "settings": return "Settings/SettingsViewController.swift"
+        case "lobby": return "Lobby/"
         default: return "?"
+        }
+    }
+
+    /// AMENDED (1.1): the Lobby is built twice, so each of its ids is used in both builds, the SwiftUI one under
+    /// `Lobby/SwiftUI/` and the UIKit one under `Lobby/UIKit/`, and nowhere else. Each build may spread its ids over
+    /// its files, but every id is in each build.
+    private func usedWhereExpected(_ usedIn: Set<String>, _ expected: String, _ what: String) {
+        if expected == "Lobby/" {
+            XCTAssertTrue(usedIn.allSatisfy { $0.hasPrefix("Lobby/SwiftUI/") || $0.hasPrefix("Lobby/UIKit/") }, "\(what): used in \(usedIn.sorted())")
+            XCTAssertTrue(usedIn.contains { $0.hasPrefix("Lobby/SwiftUI/") }, "\(what): not in the SwiftUI Lobby")
+            XCTAssertTrue(usedIn.contains { $0.hasPrefix("Lobby/UIKit/") }, "\(what): not in the UIKit Lobby")
+        } else {
+            XCTAssertEqual(usedIn, [expected], what)
         }
     }
 
@@ -69,7 +83,11 @@ final class SourceCensusTests: XCTestCase {
         let source = try Repo.text("MossgroveKit/Sources/MossgroveKit/TestIds.swift")
         var members: [String: String] = [:]
         let constant = try NSRegularExpression(pattern: #"static let (\w+) = "([a-z0-9_]+)""#)
-        let template = try NSRegularExpression(pattern: #"static func (\w+)\(_ (\w+): \w+\) -> String \{ "([a-z0-9_]+)_\\\((\w+)\)" \}"#)
+        // AMENDED (1.1): a template may take more than one parameter (`lobby_row_{n}_tile_{m}`, `lobby_board_cell_{col}{row}`)
+        // and may go on after one (`lobby_row_{n}_position`). Each `\(name)` in the string is the template's `{name}`, and
+        // the parameters are exactly those names, in that order.
+        let template = try NSRegularExpression(pattern: #"static func (\w+)\(([^)]*)\) -> String \{ "([a-z0-9_\\()]+)" \}"#)
+        let slot = try NSRegularExpression(pattern: #"\\\((\w+)\)"#)
         let range = NSRange(source.startIndex..., in: source)
         func group(_ match: NSTextCheckingResult, _ i: Int) -> String { String(source[Range(match.range(at: i), in: source)!]) }
         for match in constant.matches(in: source, range: range) {
@@ -77,8 +95,12 @@ final class SourceCensusTests: XCTestCase {
             members[group(match, 1)] = group(match, 2)
         }
         for match in template.matches(in: source, range: range) {
-            XCTAssertEqual(group(match, 2), group(match, 4), "\(group(match, 1)): the parameter is the template's name")
-            members[group(match, 1)] = "\(group(match, 3))_{\(group(match, 2))}"
+            let body = group(match, 3)
+            let names = slot.matches(in: body, range: NSRange(body.startIndex..., in: body)).map { String(body[Range($0.range(at: 1), in: body)!]) }
+            let parameters = group(match, 2).split(separator: ",").map { $0.split(separator: ":")[0].replacingOccurrences(of: "_", with: "").trimmingCharacters(in: .whitespaces) }
+            XCTAssertEqual(parameters, names, "\(group(match, 1)): the parameters are the template's names")
+            XCTAssertFalse(names.isEmpty, group(match, 1))
+            members[group(match, 1)] = slot.stringByReplacingMatches(in: body, range: NSRange(body.startIndex..., in: body), withTemplate: "{$1}")
         }
         return members
     }
@@ -86,17 +108,19 @@ final class SourceCensusTests: XCTestCase {
     /// TestIds.swift declares exactly the JSON's native ids: none missing, none extra, none twice.
     func testTestIdsAreExactlyTheJsonList() throws {
         let spec = try Repo.specIds()
-        XCTAssertEqual(spec.spec, "1.0")
+        XCTAssertEqual(spec.spec, "1.1")
         let native = spec.ids.map(\.id).filter { !$0.hasPrefix("web_") }
         XCTAssertEqual(native.count, Set(native).count, "the JSON lists an id twice")
         let declared = try testIdsSource()
         XCTAssertEqual(declared.count, Set(declared.values).count, "TestIds.swift declares an id twice")
         XCTAssertEqual(Set(declared.values), Set(native))
-        XCTAssertEqual(declared.count, 138)
-        XCTAssertEqual(spec.ids.count, 147)
+        // 1.1: the Lobby's 46 (lab_lobby_views included: iOS builds the Lobby twice)
+        XCTAssertEqual(declared.count, 184)
+        XCTAssertEqual(spec.ids.count, 193)
         let pattern = try NSRegularExpression(pattern: spec.pattern)
         for id in spec.ids.map(\.id) {
-            let bare = id.replacingOccurrences(of: #"_\{\w+\}"#, with: "_1", options: .regularExpression)
+            // AMENDED (1.1): every placeholder, `{col}{row}` too, stands for a value
+            let bare = id.replacingOccurrences(of: #"\{\w+\}"#, with: "1", options: .regularExpression)
             XCTAssertNotNil(pattern.firstMatch(in: bare, range: NSRange(bare.startIndex..., in: bare)), "\(id) breaks the id pattern")
         }
     }
@@ -113,7 +137,7 @@ final class SourceCensusTests: XCTestCase {
             let member = try XCTUnwrap(memberById[id.id], id.id)
             let use = try NSRegularExpression(pattern: #"\bTestIds\.\#(member)\b"#)
             let usedIn = Set(sources.filter { use.firstMatch(in: $0.value, range: NSRange($0.value.startIndex..., in: $0.value)) != nil }.keys)
-            XCTAssertEqual(usedIn, [expectedFile(for: id)], "\(id.id) (TestIds.\(member))")
+            usedWhereExpected(usedIn, expectedFile(for: id), "\(id.id) (TestIds.\(member))")
         }
     }
 

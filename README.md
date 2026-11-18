@@ -6,13 +6,14 @@ Clone it, build it, and run your first NthCase test on it in minutes.
 
 It is one of five identical Mossgrove apps. The same screens, test ids, texts and scenarios are built in Kotlin +
 Jetpack Compose, SwiftUI (this one), Flutter, React Native and Ionic, all from one spec: [SPEC.md](SPEC.md),
-**spec 1.0**. Every verb NthCase supports has a place to land, and so do the hard cases real apps have: a slow screen,
-a failed load with retry, a web view, a system permission prompt, a modal, and a screen with no test ids at all.
+**spec 1.1**. Every verb NthCase supports has a place to land, and so do the hard cases real apps have: a slow screen,
+a failed load with retry, a web view, a system permission prompt, a modal, a screen with no test ids at all, and (new in
+1.1) **the Lobby**, a screen of many scrollers with a control that appears late.
 
 - No network, no analytics, no ads, no tracking, no third-party code. Everything is seeded inside the app, so every
   run is the same.
-- One screen, Settings, is built with **UIKit** (a `UITableView` in a `UIViewController`), so both iOS UI toolkits are
-  covered. The rest is SwiftUI.
+- Settings is built with **UIKit** (a `UITableView` in a `UIViewController`), and the Lobby is built twice, in SwiftUI
+  and in UIKit, so both iOS UI toolkits are covered. The rest is SwiftUI.
 
 | Sign in | Shop | Item | Cart |
 | --- | --- | --- | --- |
@@ -24,8 +25,8 @@ a failed load with retry, a web view, a system permission prompt, a modal, and a
 | Settings (UIKit) | UIKit alert | Care guide (web view) | Deep link, unknown id |
 | <img src="docs/screenshots/light/22-settings.png" width="180" alt="Settings (UIKit)"> | <img src="docs/screenshots/light/23-settings-dialog.png" width="180" alt="UIKit alert"> | <img src="docs/screenshots/light/15-webview.png" width="180" alt="Care guide"> | <img src="docs/screenshots/light/24-deep-link-unknown.png" width="180" alt="Deep link, unknown id"> |
 
-All 24 screens, light and dark, are in [docs/screenshots](docs/screenshots). The XCUITest suite takes them on a CI
-simulator.
+All 24 screens of spec 1.0, light and dark, are in [docs/screenshots](docs/screenshots). The XCUITest suite takes them
+on a CI simulator. The Lobby's seven (25–31) are taken the same way, by the first device-suite run with 1.1.
 
 ## Test account
 
@@ -46,7 +47,7 @@ silicon and Intel), with `SHA256SUMS` beside it. It runs on iOS 17 or later. Unz
 you name by its UDID (`xcrun simctl list devices` lists them):
 
 ```bash
-unzip mossgrove-ios-v1.0.0-simulator.zip
+unzip mossgrove-ios-v1.1.0-simulator.zip
 xcrun simctl install <udid> Mossgrove.app
 ```
 
@@ -63,11 +64,12 @@ xcodebuild build -project Mossgrove.xcodeproj -scheme Mossgrove -destination 'ge
 ```
 
 ```bash
-scripts/package-simulator-app.sh v1.0.0
+scripts/package-simulator-app.sh v1.1.0
 ```
 
 That builds Release for arm64 and x86_64, zips `Mossgrove.app` into `dist/`, writes `SHA256SUMS`, and checks the zip's
-bundle id, minimum iOS and URL scheme.
+bundle id, minimum iOS and URL scheme. A tag that starts with `v` must be the app's version (`MARKETING_VERSION`,
+1.1.0): `v1.0.0` stops before anything is written.
 
 ## Tests
 
@@ -114,6 +116,7 @@ xcodebuild test -project Mossgrove.xcodeproj -scheme Mossgrove -destination 'id=
 | `MossgroveTests` | the app's model, the UIKit screen's ids, the alert's button ids, the shake |
 | `MossgroveUITests/IdWalkTests` | every screen in the state the spec names, with every id of `test-ids.json` in XCUITest's tree, which is the tree Appium reads; Gift cards has none; each `nav_*` id is the button a person taps (CI runs this one on an older iOS too, when the runner has one) |
 | `MossgroveUITests/FlowTests` | the flows of scenarios 01–11, typed as NthCase types (no Return unless the scenario says so); the deep link from a cold start, and to the running app signed in and signed out; a tab opens at its first screen; the edge swipe goes back |
+| `MossgroveUITests/LobbyTests` | both Lobbies: the scrollers' order in the tree with the pager on and off, the pager absent when off, Saved absent before its delay (and so NthCase's iOS reach finds nothing to scroll to), and the gesture that reach would make, injected across the Top 10 row and row 1; each finding is a `LOBBY:` line on the run's summary |
 | `MossgroveUITests/ScreenshotTests` | every screen, light and dark |
 
 | | |
@@ -168,6 +171,8 @@ Mossgrove and run it on my iPhone simulator".
 | a screen with no test ids | Lab › Gift cards | 10 |
 | extract, startif / endif | the cart total; sign in only if asked | 03, 06 |
 | deep link | `nthcase-sample://item/7` | 11 |
+| scroll to an element, a pager, a board both ways | Lab › Lobby (1.1) | 12–15 |
+| a control that appears late, a scroll that must touch nothing | Lab › Lobby, Lab › Lobby (UIKit) (1.1) | 16–20 |
 
 The full table, with every check type and the known gaps, is in [SPEC.md §8](SPEC.md#8-verb-coverage).
 
@@ -204,8 +209,48 @@ element's `name` (the `accessibility id` locator). Three needed care, and the id
 - **The alerts.** The checkout dialog is the app's own view, because a SwiftUI alert's buttons cannot carry ids. The
   UIKit screen's `UIAlertController` gets its two button ids once it is on screen.
 
+- **The Lobby.** Every tile, chip, banner, cell, line and bar item is one element with its own id and its name as its
+  label; nothing inside it has an id, so nothing is hidden by folding. Each scroller's id is on the scroller itself:
+  in SwiftUI through the same container as the lists, in UIKit on the collection view, the table and the board. UIKit
+  makes a scroll view of its own for each orthogonal section of the page; the app gives it `lobby_chips` or
+  `lobby_row_n` once one of its cells is shown.
+
 The care-guide page's elements have the same HTML `id` and `data-testid`; Appium sees them in the WEBVIEW context of a
 Debug build. The Gift cards screen has none, on purpose.
+
+## The Lobby (spec 1.1)
+
+Lab › **Lobby** and Lab › **Lobby (UIKit)** are the same screen built twice, a test bench for scrolling: a touch log,
+"Saved appears after" (0, 3, 6, 12 or 20 s) with **Show the pager**, a promo pager, a fixed **Top 10** row, then the
+page (chips, four tile rows, a grid, a list inside the list, a board that scrolls both ways, a footer), and the Lobby's
+own bar, whose **Saved** is not in the tree at all until its delay has passed. The pager and the Top 10 row sit above
+the page, outside it, so one of them is the first scroller in the tree. SPEC.md §5 and §13 say why.
+
+| Part | Lobby (SwiftUI, `lab_lobby`) | Lobby (UIKit, `lab_lobby_views`) |
+| --- | --- | --- |
+| page | `ScrollView` with a `LazyVStack` | `UICollectionView`, compositional layout |
+| pager | horizontal `ScrollView`, `.scrollTargetBehavior(.paging)`, inside an `if` for Show the pager | its own `UICollectionView`, horizontal compositional layout, `isPagingEnabled`; its frame is removed from its superview when off |
+| Top 10 row | horizontal `ScrollView` with a `LazyHStack`, between the pager and the page | its own horizontal `UICollectionView`, between the pager and the page |
+| chips, tile rows | horizontal `ScrollView`s with `LazyHStack` | sections of the page that scroll orthogonally (`.continuous`) |
+| grid | rows of cells in the page | one cell of the page holding a 2 × 6 stack of cells (a section has no view to carry `lobby_grid`) |
+| inner list | `ScrollView` in a 240-point frame | `UITableView` 240 points high in a cell |
+| board | one `ScrollView([.horizontal, .vertical])` | a `UIScrollView` whose content is 1,456 points square in a 280-point frame |
+| bar | an `HStack` of buttons; Saved is left out of it | a `UIStackView` of buttons; Saved is removed from it |
+| quick sheet | `.sheet` at the medium detent | a view controller with `UISheetPresentationController` at the medium detent |
+| touches | `onTapGesture(count: 2)`, `onTapGesture`, `onLongPressGesture` | `UITapGestureRecognizer` (two taps), one that requires it to fail, `UILongPressGestureRecognizer` |
+
+**What a touch does with a moving finger.** The Lobby adds no rule of its own; these are the platform's:
+- **A long press** fires once the finger has been down 0.5 s, unless it moved more than 10 points first (SwiftUI's
+  `onLongPressGesture` and UIKit's `UILongPressGestureRecognizer`, both at their defaults). Movement after it fired
+  changes nothing: it has been logged.
+- **A tap** is a press that lifts without moving far; one that moves more is no tap. It is logged once the double-tap
+  time has passed with no second tap.
+- **Inside a scroller**, a drag that the scroller takes cancels the press under it, so nothing is logged. A scroller
+  takes only a drag along its own axis: a horizontal row lets a vertical drag go to whatever is around it.
+
+NthCase's iOS reach scrolls with WebDriverAgent's `mobile: scroll`, which presses for 0.5 s before it drags, the same
+time as the long press. `LobbyTests` makes that gesture across the Top 10 row and row 1, and the device suite's
+summary says what the tile under it did.
 
 ## Layout
 
@@ -214,10 +259,11 @@ Mossgrove/App/              the app, the model, the tabs, the palette, notificat
 Mossgrove/Components/       top bar, snackbar banner, dialog, shared views
 Mossgrove/Screens/          the SwiftUI screens
 Mossgrove/Settings/         the UIKit screen
+Mossgrove/Lobby/            the Lobby: SwiftUI/ and UIKit/, and what both share
 Mossgrove/Resources/        Assets.xcassets (made from art/), care-guide.html
 MossgroveKit/               the logic and its tests (swift test)
 MossgroveTests/             unit tests inside the app
-MossgroveUITests/           the id walk, the scenario flows, the screenshots
+MossgroveUITests/           the id walk, the scenario flows, the Lobby, the screenshots
 Config/Info.plist           the URL scheme
 scripts/                    make-assets.swift, package-simulator-app.sh, ci-simulator.sh, ci-screenshots.sh,
                             ci-test-summary.py, ax-shapes.swift, slider-replay.sh and .swift
@@ -232,7 +278,7 @@ vectors, and the launcher mark becomes the app icon. `art/` itself is never chan
 A push to `main` or a pull request runs the fast checks on `macos-latest`: `swift test` and the zipped simulator app,
 in about 4 minutes, with no simulator. A push that changes only `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 `LICENSE`, `NOTICE` or `docs/screenshots/` starts nothing. The device suite runs on a simulator made for the run (the
-screenshots, `MossgroveTests`, the id walk, the flows and the tabs on an older iOS, about 50 minutes) on "Run
+screenshots, `MossgroveTests`, the id walk, the flows, the Lobby and the tabs on an older iOS, about an hour) on "Run
 workflow", at 03:17 UTC on the 1st of each month, and before every release: a `v*` tag publishes only when the fast checks and the
 suite are green. To start the suite by hand, open Actions → build → Run workflow on `main`, or run
 `gh workflow run build.yml --ref main`. The jobs are in [.github/workflows/ci.yml](.github/workflows/ci.yml).

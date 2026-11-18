@@ -21,6 +21,13 @@ for binary in "$app/Mossgrove" "$app/Frameworks/MossgroveKit.framework/Mossgrove
   [[ " $archs " == *" arm64 "* && " $archs " == *" x86_64 "* ]] || { echo "not built for arm64 and x86_64" >&2; exit 1; }
 done
 
+# A v* tag ships only the version it names: v1.1.0 cannot publish a 1.0.0 app. Checked before dist/ is touched.
+built=$(plutil -extract CFBundleShortVersionString raw "$app/Info.plist")
+if [[ "$tag" == v* && "$tag" != "v$built" ]]; then
+  echo "the tag $tag does not match the app's version $built (MARKETING_VERSION); nothing written to dist/" >&2
+  exit 1
+fi
+
 zip="mossgrove-ios-${tag}-simulator.zip"
 mkdir -p dist
 rm -f "dist/$zip" dist/SHA256SUMS

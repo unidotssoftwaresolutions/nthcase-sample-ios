@@ -127,7 +127,7 @@ public enum Texts {
     public static let resetBody = "You stay signed in. This can't be undone."
     public static let resetConfirm = "Empty"
     public static let resetDone = "Cart and orders emptied"
-    public static let specVersion = "1.0"
+    public static let specVersion = "1.1"
     public static func version(_ app: String) -> String { "Mossgrove \(app) · spec \(specVersion) · a sample app for NthCase" }
 
     /// Settings › Notifications status line, from whether the system allows notifications and whether updates are on.

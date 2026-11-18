@@ -21,11 +21,14 @@ struct SpecIds: Decodable {
     var native: [Entry] { ids.filter { !$0.id.hasPrefix("web_") } }
 
     /// Whether a concrete id ("shop_item_7") is an instance of a list entry ("shop_item_{id}").
+    /// AMENDED (1.1): each placeholder stands for letters and digits, wherever it is in the entry, so
+    /// "lobby_row_3_tile_15" is an instance of "lobby_row_{n}_tile_{m}" and not of "lobby_row_{n}", and
+    /// "lobby_board_cell_m18" of "lobby_board_cell_{col}{row}".
     static func matches(_ concrete: String, _ entry: String) -> Bool {
         guard entry.contains("{") else { return concrete == entry }
-        let prefix = entry.prefix { $0 != "{" }
-        let tail = concrete.dropFirst(prefix.count)
-        return concrete.hasPrefix(prefix) && !tail.isEmpty && tail.allSatisfy { $0.isLetter || $0.isNumber }
+        let pattern = "^" + NSRegularExpression.escapedPattern(for: entry)
+            .replacingOccurrences(of: #"\\\{\w+\\\}|\{\w+\}"#, with: "[a-z0-9]+", options: .regularExpression) + "$"
+        return concrete.range(of: pattern, options: .regularExpression) != nil
     }
 }
 
@@ -122,6 +125,36 @@ extension XCUIApplication {
             left -= 1
         }
         return element
+    }
+}
+
+extension XCUIApplication {
+    /// The Lobby's page, scrolled by a drag in its left margin (8 points in, where no row, grid, inner list or board
+    /// is), until `element` is on screen or the page stops moving. A swipe at the screen's centre could land on a tile
+    /// row, the inner list or the board and move that instead.
+    @discardableResult
+    func scrollLobbyPage(until element: XCUIElement, up: Bool = false, tries: Int = 25) -> XCUIElement {
+        let page = id("lobby_page")
+        guard page.waitForExistence(timeout: 8) else { return element }
+        var left = tries
+        while !(element.exists && element.isHittable) && left > 0 {
+            let frame = page.frame
+            let origin = coordinate(withNormalizedOffset: .zero)
+            let low = origin.withOffset(CGVector(dx: frame.minX + 8, dy: frame.minY + frame.height * 0.8))
+            let high = origin.withOffset(CGVector(dx: frame.minX + 8, dy: frame.minY + frame.height * 0.2))
+            if up { high.press(forDuration: 0.05, thenDragTo: low) } else { low.press(forDuration: 0.05, thenDragTo: high) }
+            left -= 1
+        }
+        return element
+    }
+
+    /// A long press as NthCase makes one: the element is waited for, then pressed for a second.
+    func longPressWhenThere(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        guard element.waitForExistence(timeout: 8) else {
+            Misses.report("could not long-press \(element.description): not in the tree after 8 s", file: file, line: line)
+            return
+        }
+        element.press(forDuration: 1.0)
     }
 }
 

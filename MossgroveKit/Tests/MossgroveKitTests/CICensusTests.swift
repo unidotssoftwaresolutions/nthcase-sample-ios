@@ -15,11 +15,31 @@ final class CICensusTests: XCTestCase {
     }
 
     /// Whether a concrete id ("shop_item_7") is an instance of a list entry ("shop_item_{id}"), as the UI tests decide.
+    /// AMENDED (1.1): each placeholder stands for letters and digits wherever it is, as in Support.swift, so
+    /// "lobby_row_1" is not an instance of "lobby_row_{n}_tile_{m}" (the old prefix rule took it for one).
     private func instance(_ concrete: String, of entry: String) -> Bool {
         guard entry.contains("{") else { return concrete == entry }
-        let prefix = entry.prefix { $0 != "{" }
-        let tail = concrete.dropFirst(prefix.count)
-        return concrete.hasPrefix(prefix) && !tail.isEmpty && tail.allSatisfy { $0.isLetter || $0.isNumber }
+        let pattern = "^" + NSRegularExpression.escapedPattern(for: entry)
+            .replacingOccurrences(of: #"\\\{\w+\\\}|\{\w+\}"#, with: "[a-z0-9]+", options: .regularExpression) + "$"
+        return concrete.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    /// The UI tests and the census decide "an instance of" the same way.
+    func testTheTemplateRuleIsTheUITestsRule() throws {
+        XCTAssertTrue(instance("lobby_row_3_tile_15", of: "lobby_row_{n}_tile_{m}"))
+        XCTAssertFalse(instance("lobby_row_3_tile_15", of: "lobby_row_{n}"))
+        XCTAssertFalse(instance("lobby_row_1", of: "lobby_row_{n}_tile_{m}"))
+        XCTAssertTrue(instance("lobby_row_1_position", of: "lobby_row_{n}_position"))
+        XCTAssertTrue(instance("lobby_board_cell_m18", of: "lobby_board_cell_{col}{row}"))
+        XCTAssertTrue(instance("shop_item_7", of: "shop_item_{id}"))
+        XCTAssertFalse(instance("shop_item_", of: "shop_item_{id}"))
+        let support = try Repo.text("MossgroveUITests/Support.swift")
+        let rule = #"""
+                let pattern = "^" + NSRegularExpression.escapedPattern(for: entry)
+                    .replacingOccurrences(of: #"\\\{\w+\\\}|\{\w+\}"#, with: "[a-z0-9]+", options: .regularExpression) + "$"
+                return concrete.range(of: pattern, options: .regularExpression) != nil
+        """#
+        XCTAssertNotNil(support.range(of: rule), "Support.swift's SpecIds.matches is not the census's rule")
     }
 
     private func nativeIds() throws -> [String] { try Repo.specIds().ids.map(\.id).filter { !$0.hasPrefix("web_") } }
@@ -83,7 +103,7 @@ final class CICensusTests: XCTestCase {
         XCTAssertNotNil(tabs.range(of: "return Button { model.navigation.select(tab) } label: {"))
         XCTAssertNotNil(tabs.range(of: ".accessibilityIdentifier(id)\n"))
         XCTAssertNotNil(tabs.range(of: ".accessibilityLabel(tab == .cart ? cartTabLabel(count: count) : tab.title)"))
-        for file in ["FlowTests", "IdWalkTests", "ScreenshotTests", "Support"] {
+        for file in ["FlowTests", "IdWalkTests", "LobbyTests", "ScreenshotTests", "Support"] {
             XCTAssertNil(try Repo.text("MossgroveUITests/\(file).swift").range(of: "tabBars"), "\(file) looks for the system tab bar")
         }
         XCTAssertNotNil(try Repo.text("MossgroveUITests/IdWalkTests.swift").range(of: "func testEveryTabIsTheButtonAPersonTaps()"))
@@ -204,7 +224,7 @@ final class CICensusTests: XCTestCase {
     /// missing. The focus check looks every quarter second. In the third CI run a tap right after Back from Gestures
     /// found no `lab_webview` and ended the walk, and a field that had the focus was failed for not having it.
     func testTheUITestsWaitAsNthCaseDoes() throws {
-        for file in ["FlowTests", "IdWalkTests", "ScreenshotTests", "Support"] {
+        for file in ["FlowTests", "IdWalkTests", "LobbyTests", "ScreenshotTests", "Support"] {
             let source = try Repo.text("MossgroveUITests/\(file).swift")
             XCTAssertEqual(try matches(#"\bid\("[a-z0-9_]+"\)\.tap\(\)|scrollTo\(app\.id\("[a-z0-9_]+"\)(, up: true)?\)\.tap\(\)"#, in: source).count, 0,
                            "\(file): a tap on an id that does not wait for it")
@@ -281,7 +301,8 @@ final class CICensusTests: XCTestCase {
         let native = try nativeIds()
         let folder = Repo.url("MossgroveUITests")
         let files = try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.hasSuffix(".swift") }.sorted()
-        XCTAssertEqual(files, ["FlowTests.swift", "IdWalkTests.swift", "ScreenshotTests.swift", "Support.swift"])
+        // AMENDED (1.1): LobbyTests.swift, the Lobby's order, absences and injected swipe
+        XCTAssertEqual(files, ["FlowTests.swift", "IdWalkTests.swift", "LobbyTests.swift", "ScreenshotTests.swift", "Support.swift"])
         var named = 0
         for file in files {
             for match in try matches(#""(([a-z]+)_[a-z0-9_]+)""#, in: try Repo.text("MossgroveUITests/\(file)")) where prefixes.contains(match[2]) {
@@ -292,17 +313,18 @@ final class CICensusTests: XCTestCase {
         XCTAssertGreaterThan(named, 300)
     }
 
-    /// The 24 screenshots: ScreenshotTests makes them under the names the CI script checks, one each, 01 to 24.
+    /// The 31 screenshots (24, and the Lobby's seven in 1.1, under the Android app's names): ScreenshotTests makes them
+    /// under the names the CI script checks, one each, 01 to 31.
     func testTheScreenshotNamesAgree() throws {
         let tests = try matches(#"shot\("(\d\d-[a-z-]+)""#, in: try Repo.text("MossgroveUITests/ScreenshotTests.swift")).map { $0[1] }
         let script = try Repo.text("scripts/ci-screenshots.sh")
         let block = try XCTUnwrap(try matches(#"expected="([^"]*)""#, in: script).first?[1])
         let expected = block.split(whereSeparator: \.isWhitespace).map(String.init)
-        XCTAssertEqual(tests.count, 24)
-        XCTAssertEqual(Set(tests).count, 24, "a screenshot name twice")
+        XCTAssertEqual(tests.count, 31)
+        XCTAssertEqual(Set(tests).count, 31, "a screenshot name twice")
         XCTAssertEqual(Set(tests), Set(expected))
-        XCTAssertEqual(expected.count, 24)
-        XCTAssertEqual(Set(expected.map { String($0.prefix(2)) }), Set((1...24).map { String(format: "%02d", $0) }))
+        XCTAssertEqual(expected.count, 31)
+        XCTAssertEqual(Set(expected.map { String($0.prefix(2)) }), Set((1...31).map { String(format: "%02d", $0) }))
     }
 
     // MARK: The workflows
@@ -315,7 +337,8 @@ final class CICensusTests: XCTestCase {
     private static let workflows = [".github/workflows/build.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
 
     /// The steps of the device suite: they run only when the caller asks for the suite.
-    private static let deviceSteps = ["simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "tabs_older"]
+    /// AMENDED (1.1): and the Lobby's own step, `lobby`, after the flows.
+    private static let deviceSteps = ["simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "lobby", "tabs_older"]
 
     /// The files a push or a pull request may change without starting CI.
     private static let ignored = ["README.md", "CONTRIBUTING.md", "SECURITY.md", "LICENSE", "NOTICE", "docs/screenshots/**"]
@@ -386,6 +409,7 @@ final class CICensusTests: XCTestCase {
         }
         let checks = ["ci-screenshots.sh \"$UDID\" light", "ci-screenshots.sh \"$UDID\" dark", "-only-testing:MossgroveTests ",
                       "-only-testing:MossgroveUITests/IdWalkTests ", "-only-testing:MossgroveUITests/FlowTests ",
+                      "-only-testing:MossgroveUITests/LobbyTests ",
                       "-only-testing:MossgroveUITests/IdWalkTests/testEveryTabIsTheButtonAPersonTaps ",
                       "scripts/ci-simulator.sh older", "scripts/package-simulator-app.sh"]
         for check in checks {
@@ -400,7 +424,7 @@ final class CICensusTests: XCTestCase {
         let summary = try XCTUnwrap(steps.last)
         XCTAssertTrue(summary.contains("if: always()") && summary.contains("scripts/ci-test-summary.py"), "the last step is the summary")
         let ids = steps.compactMap { try? matches(#"(?m)^        id: (\w+)$"#, in: $0).first?[1] }
-        XCTAssertEqual(ids, ["kit", "simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "tabs_older", "package"])
+        XCTAssertEqual(ids, ["kit", "simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "lobby", "tabs_older", "package"])
         for id in ids {
             XCTAssertTrue(summary.contains("${{ steps.\(id).outcome }}"), "the summary does not report \(id)")
         }

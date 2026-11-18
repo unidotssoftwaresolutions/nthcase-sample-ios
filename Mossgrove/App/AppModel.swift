@@ -40,6 +40,10 @@ final class AppModel {
     var failFirstLoad = false
     /// Settings › Notifications: post "Order <n> placed" when notifications are allowed.
     var orderUpdates = false
+    /// The Lobby's "Saved appears after", in seconds, and its "Show the pager": kept in memory until the app closes,
+    /// so a cold start is 0 s with the pager shown (SPEC.md §5). Both Lobbies read the same two.
+    var lobbySavedDelay = 0
+    var lobbyPagerShown = true
     var themeMode: ThemeMode = .system {
         didSet { applyTheme() }
     }

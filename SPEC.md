@@ -1,15 +1,43 @@
-# Mossgrove: the NthCase sample apps (spec 1.0)
+# Mossgrove: the NthCase sample apps (spec 1.1)
 
-**Spec version 1.0 · 2026-11-03.** This one document defines all five NthCase sample apps. Each repository carries
+**Spec version 1.1 · 2026-11-18.** This one document defines all five NthCase sample apps. Each repository carries
 a copy of it, and the version line says which spec that repository builds.
+
+## Changes in 1.1
+
+Spec 1.1 adds one Lab screen, the **Lobby**, and changes nothing that 1.0 defined, except the version line in
+Settings.
+
+- **Why.** On 2026-11-18, NthCase run `00ec77f5` tested a casino app on a Samsung phone. Its step "tap Favoriter in
+  the bottom navigation bar" did not find the control in time, because the bar's item appeared late. The run's
+  recovery scroll then swiped the first scrollable element in the tree, a horizontal collection, vertically. Nothing
+  claimed the swipe, and a game tile under it took it as a long press and opened its quick sheet. The heal then
+  proposed the sheet's own "Favoriter" button. The Lobby rebuilds that screen in every Mossgrove app, so the fault can
+  be reproduced on every platform before NthCase is fixed.
+- **§5:** the Lab has a seventh row, **Lobby** (`lab_lobby`). Android and iOS add an eighth, the same Lobby built with
+  the classic view toolkit (`lab_lobby_views`). The Lobby screen is new: a touch log, a promo pager that is the first
+  scrollable in the tree, a switch that takes the pager away, a fixed **Top 10** row of tiles that is the first
+  scrollable when the pager is away, chips, four tile rows, a grid, a list inside the list, a board that scrolls both
+  ways, and a bar whose **Saved** item appears late.
+- **§5, Settings:** the version line reads "Mossgrove 1.1.0 · spec 1.1 · a sample app for NthCase".
+- **§6:** the Lobby's texts.
+- **§7:** 46 ids (147 → 193), and four new placeholders: `{m}`, `{s}`, `{col}`, `{row}`.
+- **§8:** the verbs the Lobby exercises.
+- **§9:** scenarios 12–20.
+- **§12:** which scroller each framework uses for each part of the Lobby, and the web lab's Lobby.
+- **§13:** the fault the Lobby reproduces.
+- **Before any app but Android copied 1.1**, the Top 10 row and **Show the pager** were added to it, with scenarios 19
+  and 20. The Android round had reproduced the fault with the pager, a banner taking the swipe. In the run the swipe
+  hit a game tile, so the first scrollable there was a row of tiles that no vertical scroller enclosed. The Top 10 row
+  is that row. 1.1 was not published before this change, so it is still 1.1.
 
 | Repository | Framework | Status |
 | --- | --- | --- |
-| `nthcase-sample-android` | Kotlin + Jetpack Compose, settings in classic XML Views | built against spec 1.0 |
-| `nthcase-sample-ios` | SwiftUI, settings in UIKit | to build |
-| `nthcase-sample-flutter` | Flutter (Android + iOS) | to build |
-| `nthcase-sample-react-native` | React Native with Expo (Android + iOS) | to build |
-| `nthcase-sample-ionic` | Ionic React + Capacitor (Android + iOS), a WebView app | to build |
+| `nthcase-sample-android` | Kotlin + Jetpack Compose, settings in classic XML Views | built against spec 1.1 |
+| `nthcase-sample-ios` | SwiftUI, settings in UIKit | built against spec 1.0; the Lobby to build |
+| `nthcase-sample-flutter` | Flutter (Android + iOS) | built against spec 1.0; the Lobby to build |
+| `nthcase-sample-react-native` | React Native with Expo (Android + iOS) | built against spec 1.0; the Lobby to build |
+| `nthcase-sample-ionic` | Ionic React + Capacitor (Android + iOS), a WebView app | built against spec 1.0; the Lobby to build |
 
 The apps have two jobs. They are a **showcase**: a developer evaluating NthCase clones one, builds it, and tests it in
 minutes. And they are NthCase's **regression lab**: every verb NthCase records and replays, and the hard cases real
@@ -190,7 +218,10 @@ order**. Place order empties the cart, adds the order, and shows the snackbar "O
 **Lab** (`lab_screen`). One line: "Screens for testing. Each one exercises verbs that NthCase records and replays."
 Then six rows, each a title and one line of what it covers: **Join the club** (`lab_form`), **Gestures**
 (`lab_gestures`), **Care guide** (`lab_webview`), **Delivery slots** (`lab_slow`), **Orders** (`lab_orders`),
-**Gift cards** (`lab_gift_cards`).
+**Gift cards** (`lab_gift_cards`). Spec 1.1 adds a seventh, **Lobby** (`lab_lobby`), "A pager, rows, a grid, a
+list in the list, a board and a late bar item, with a touch log". Android and iOS add an eighth (`lab_lobby_views`),
+the same Lobby built with the classic view toolkit: **Lobby (Views)**, "The same Lobby, built with Android Views", and
+**Lobby (UIKit)**, "The same Lobby, built with UIKit".
 
 **Join the club** (`form_screen`), the form. "Members hear about new drawers first. Every field is required except the
 newsletter." The fields, in order:
@@ -255,6 +286,142 @@ a balance", a **Card code** field (it upper-cases what is typed), **Check balanc
 on the right, each with a button that says **Choose**. Only position tells them apart. Below them: "Choose a design",
 then "A $25 card with the Stone design".
 
+**Lobby** (`lobby_screen`, new in 1.1), a test bench for scrolling. It has the shape of a busy store front: a promo
+pager, a Top 10 row, chips, rows of tiles, a grid, a list inside the list, a board that scrolls both ways, and a bar
+with one late item. A touch log at the top says whether anything was touched by accident. The top bar says "Lobby" (or
+the second row's title, below) and has Back. Everything below is in this order, top to bottom, and in this order in the
+accessibility tree:
+
+1. **The touch log** (`lobby_touch_log`), fixed, outside every scroller, under the label "Touch log". It reads
+   "Nothing touched" until one of the Lobby's touchable elements gets a tap, a long press or a double tap. The
+   touchable elements are a banner, a chip, a tile, a grid cell, a line of the inner list, a board cell, a bar item
+   and a button in the quick sheet. Then the log shows the touches, newest first, one per line, at most three, each as
+   "<How>: <What> (<Where>)", for example "Long-pressed: Espresso Cup Pair (row 2, tile 1)". Beside it, the count
+   (`lobby_touch_count`) reads "Touches: 0" and counts every touch since the last reset, including the ones the log no
+   longer shows. **Reset** (`lobby_touch_reset`) sets both back. A scroll, a swipe of the pager and a pan of the board
+   are not touches, and nothing logs them. **This is the oracle:** a scenario that only scrolls must end with "Nothing
+   touched".
+2. **Saved appears after** (`lobby_saved_delay`), fixed: one choice of five, **0 s** (the default), **3 s**,
+   **6 s**, **12 s** and **20 s** (`lobby_saved_delay_{s}`: `lobby_saved_delay_12`). Choosing is not a touch the log
+   counts. See the bar, below. On the label's line, at its end, the switch **Show the pager** (`lobby_pager_shown`),
+   **on** by default. Off **removes** the pager and its position line (item 3: the dots, "Banner 1 of 5" and
+   Auto-advance) from the tree: not hidden, not zero-sized, not covered. On puts them back, on the banner they showed.
+   Like the delay, the choice is kept in memory until the app closes (a cold start shows the pager), and turning it is
+   not a touch the log counts.
+3. **The promo pager** (`lobby_pager`), fixed, outside the page: horizontal, one banner a page, five banners
+   (`lobby_banner_{n}`). **While it is shown, it must be the first scrollable element in the accessibility tree.** That
+   is why it sits above the page rather than in it: a scroller's node comes before its children's in every platform's
+   tree, so a pager inside the page could never be first. The banners, in order: "New in the Kitchen aisle", "Warm, low
+   desk lamps", "Ferns that like the shade", "Candles for long evenings", "Totes for market day". Each shows its title
+   and "A test banner". Under the pager, the position (`lobby_pager_position`): a row of five dots, and the text "Banner
+   1 of 5", which is also its accessible label. Beside it, the switch **Auto-advance** (`lobby_pager_auto`), **off** by
+   default for determinism. On, the pager moves to the next banner every 4 s, from 5 back to 1. A banner tap opens its
+   promo; a long press opens the quick sheet.
+4. **The Top 10 row** (`lobby_top_row`), fixed, outside the page: directly under the pager's position line, or in the
+   pager's place when Show the pager is off. A horizontal list of 10 tiles (`lobby_top_row_tile_{m}`, m = 1–10). Tile m
+   shows item m + 30 of §3 (No. 031 Tea Mug to No. 040 Fruit Bowl): its drawing on its aisle's tint, in a band 100 dp /
+   pt wide and 64 high, and its name under it. A phone shows about three. Above the row, its position
+   (`lobby_top_row_position`), as text and as accessible label: "Top 10: tiles 1–3 of 10" ("Top 10: tile 4 of 10" when
+   only one tile is fully visible). A tap opens the tile's detail; a long press opens the quick sheet. The row is not
+   part of the page and not a stop on the way down it: the page scrolls below it, and the row stays where it is. **With
+   the pager off, the Top 10 row must be the first scrollable element in the tree**; with the pager on, it comes after
+   the pager. This is the row of run `00ec77f5`: the swipe there was taken by a game tile, in a row that no vertical
+   scroller enclosed. A tile row inside the page is never such a victim, because the page claims the vertical swipe.
+5. **The page** (`lobby_page`): the vertical scroller between the Top 10 row and the bar. In it, in order:
+   - **The chips** (`lobby_chips`): one horizontal row of 12 chips (`lobby_chip_{n}`): "All" (selected), "Kitchen",
+     "Desk", "Garden", "Home", "Under $20", "Under $40", "New", "Gifts", "Sets", "Lamps", "Candles". A tap selects a chip,
+     with a check mark, and filters nothing.
+   - **Four tile rows** (`lobby_row_{n}`, n = 1–4), each a horizontal list of 20 tiles (`lobby_row_{n}_tile_{m}`). Tile
+     m of row n shows item ((n − 1) × 10 + m − 1) mod 40 + 1 of §3: its drawing on its aisle's tint, its name and its
+     number. So row 2's first tile is No. 011, Espresso Cup Pair, and row 3's tile 15 is No. 035, Bedside Lamp. A tile
+     is about 100 dp / pt wide, so a phone shows about three. Above each row, its position (`lobby_row_{n}_position`)
+     names the first and last fully visible tiles, as text and as accessible label: "Row 2: tiles 1–3 of 20" ("Row 2:
+     tile 4 of 20" when only one is). A tap opens the tile's detail; a long press opens the quick sheet.
+   - **The grid** (`lobby_grid`): the heading "Grid", then 2 columns × 6 rows of cells (`lobby_grid_cell_{n}`, numbered
+     row by row). Cell n shows item n + 28 (No. 029 to No. 040). It does not scroll on its own.
+   - **The inner list** (`lobby_inner_list`): the heading "Inner list", then a vertical list 240 dp / pt high, inside
+     the page, of 30 lines (`lobby_inner_row_{n}`): "Line 1 of 30" to "Line 30 of 30". It scrolls on its own.
+   - **The board** (`lobby_board`): above it, its position (`lobby_board_position`), "Board: top-left A1", the top-left
+     fully visible cell, as text and as accessible label. The board is a 280 dp / pt square window onto 26 × 26 cells,
+     56 dp / pt each, labelled by column letter and row number from A1 to Z26 (`lobby_board_cell_{col}{row}`, with the
+     letter in lower case: `lobby_board_cell_m18`). It scrolls both ways: a horizontal and a vertical drag, and a
+     diagonal one.
+   - **The footer** (`lobby_footer`): "End of the lobby", and under it "A test bench: nothing here is for sale."
+6. **The bar** (`lobby_bar`), fixed at the bottom of the Lobby, outside every scroller: **Home** (`lobby_bar_home`,
+   selected), **Live** (`lobby_bar_live`), **Saved** (`lobby_bar_saved`) and **Offers** (`lobby_bar_offers`). It is
+   the Lobby's own bar, not the app's tab bar. A tap on an item is logged: "Tapped: Saved (bar)". Saved shows the
+   Saved panel; Home, Live and Offers show the Lobby.
+
+**What a touch does.** Each platform's own tap, long press and double tap, with their own timeouts and their own
+rules for a finger that moves. Nothing in the Lobby may add a rule of its own, such as cancelling a press after some
+movement: the point is to see what each platform does with a stray gesture. A tap counts once the platform's
+double-tap time has passed, so a double tap is one line, "Double-tapped: …", not two taps.
+
+| Touched | What | Where | Tap | Long press | Double tap |
+| --- | --- | --- | --- | --- | --- |
+| banner n | its title | "(banner 2)" | opens the promo | opens the quick sheet | logged only |
+| chip n | its label | "(chip 3)" | selects it | logged only | logged only |
+| tile m of row n | the item's name | "(row 3, tile 15)" | opens the detail | opens the quick sheet | logged only |
+| Top 10 tile m | the item's name | "(top row, tile 2)" | opens the detail | opens the quick sheet | logged only |
+| grid cell n | the item's name | "(grid, cell 5)" | logged only | logged only | logged only |
+| inner line n | "Line 7" | "(inner list)" | logged only | logged only | logged only |
+| board cell | "M18" | "(board)" | logged only | logged only | logged only |
+| bar item | its label | "(bar)" | as above | — | — |
+| quick sheet button | its label | "(quick sheet, <title>)" | as below | — | — |
+
+So a line reads "Tapped: Bedside Lamp (row 3, tile 15)", "Long-pressed: Pocket Notebook (top row, tile 2)",
+"Double-tapped: M18 (board)", "Tapped: Line 7 (inner
+list)" or "Tapped: Saved (quick sheet, Bedside Lamp)". Only taps on bar items and on the sheet's buttons are logged
+for them; a long press or a double tap on them does whatever the platform does.
+
+**Panels.** The detail, the promo and the Saved panel take the place of the pager, the Top 10 row and the page. The
+touch log, the delay choice and the bar stay. Back (the top bar's or the system's) or the panel's **Back to the lobby**
+closes the detail or the promo; Home closes Saved. When a panel closes, every scroller is where it was.
+- **Detail** (`lobby_detail`): the tile's drawing, name and number, "Row 3, tile 15" ("Top 10, tile 2" for a Top 10
+  tile), and **Back to the lobby** (`lobby_detail_back`).
+- **Promo** (`lobby_promo`): the banner's title, "Banner 4 of 5", "A test banner. Nothing here is for sale.", and
+  **Back to the lobby** (`lobby_promo_back`).
+- **Saved** (`lobby_saved_screen`): "Saved: nothing yet".
+
+**The quick sheet** (`lobby_sheet`): a modal bottom sheet, the platform's own, so it is a window or a layer of its own
+over the Lobby. Its title (`lobby_sheet_title`) is the tile's or banner's name. Its four buttons are **Open**
+(`lobby_sheet_open`), **Preview** (`lobby_sheet_preview`), **Saved** (`lobby_sheet_saved`) and **Rate**
+(`lobby_sheet_rate`). Each is logged, "Tapped: Saved (quick sheet, Bedside Lamp)", and closes the sheet; Open then
+opens the detail or the promo. Back, a tap outside the sheet or a drag down closes it, with no log line. The button
+says "Saved" on purpose, the same word as the bar's late item: a heal that looks at this sheet instead of the Lobby
+finds a "Saved" here, and the log shows it.
+
+**Saved appears late.** Until the chosen delay has passed, the bar's Saved is **absent from the tree**: not hidden,
+not disabled, not zero-sized, and the bar has three items. The count starts when the Lobby opens, and starts again
+when a delay is chosen. The choice is kept in memory until the app is closed; a cold start is 0 s. Show the pager is
+kept the same way. Everything else on the Lobby (the log, the chips, the pager's banner, every scroll position,
+Auto-advance) starts fresh each time the Lobby opens.
+
+**Why these delays.** They come from GuruAI's tap step, read on 2026-11-18:
+- A tap's look for its control (`AppiumReplayEngine.FindElementAsync`) polls every 250 ms (`PollIntervalMs`) within
+  the step's budget. The budget is 10 s unless the step sets its own (`StepTimeoutLimits.DefaultSeconds`, and
+  `StepTimeout__DefaultSeconds` defaults to 10 in every deployment file).
+- After a miss, `TheReach.AfterAMiss` asks whether a keyboard is shown once 1 s has passed (`KeyboardAfterMs`). Once
+  **half the budget, 5 s,** has passed, it scrolls toward the control, once (`elapsedMs >= budgetMs / 2`).
+- On Android that scroll is `new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(…)`
+  (`AndroidReplayEngine.ScrollTowardIt`). Run `00ec77f5`'s scroll took 2.8 s and made two touches of about a second
+  each. Four earlier runs of the same step found the late item by waiting: the whole step took 5.8–8.4 s, with no
+  scroll.
+
+The look starts some time t after the Lobby opened or the delay was chosen: the rest of the step before it, then the
+next step's start. On a phone t is a second or more. Saved then arrives (delay − t) seconds into the look:
+
+| Delay | Today's tap step | Used by |
+| --- | --- | --- |
+| 0 s | finds Saved at its first look | the default |
+| 3 s | **waits and finds it with no scroll**: Saved arrives at most 3 s into the look, before the 5 s mark, as in the four passing runs | 17 |
+| 6 s | on the edge: Saved arrives 6 − t s into the look, so the reach scrolls only when t is under about 1 s | none; a probe |
+| 12 s | **scrolls before Saved exists**: the reach scrolls at t + 5 s, before 12 s whenever t is under 7 s. Saved arrives 12 − t s into the look, inside the 10 s budget when t is over 2 s, but by then the scroll has touched whatever lay under it | 16, 18 |
+| 20 s | longer than the whole budget: the reach scrolls, and the look ends "not found" before Saved exists, as in run `00ec77f5` | none; a probe |
+
+If a step sets a longer budget, its half-budget moves with it, so these numbers are for a step with the default
+budget, which is what the scenarios' plain steps get.
+
 **Settings** (`settings_screen`), built with the platform's classic toolkit: **XML Views in a Fragment** on Android,
 **UIKit** on iOS. Flutter, React Native and Ionic build it like their other screens; §12 says how. In order:
 
@@ -274,7 +441,8 @@ then "A $25 card with the Stone design".
   signed in. This can't be undone.", whose buttons are **Cancel** (`settings_reset_cancel`) and **Empty**
   (`settings_reset_confirm`). Its own buttons carry the ids: a stock dialog's buttons would not. Empty then shows the
   snackbar "Cart and orders emptied".
-- The version line (`settings_version`): "Mossgrove 1.0.0 · spec 1.0 · a sample app for NthCase".
+- The version line (`settings_version`): "Mossgrove 1.1.0 · spec 1.1 · a sample app for NthCase" (1.0 said
+  "Mossgrove 1.0.0 · spec 1.0 · a sample app for NthCase"; an app built against 1.0 keeps that line).
 
 **Modal and snackbar.** The checkout dialog (`dialog`, `dialog_title`, `dialog_text`, `dialog_confirm`,
 `dialog_dismiss`) is the app's modal; the reset dialog is the classic toolkit's. Snackbars (`snackbar`,
@@ -303,14 +471,18 @@ These texts are fixed. An app may not reword them, because the scenarios' checks
 | Slow | "Finding delivery slots…", "Choose when we bring your order.", the five slots, "Reload" |
 | Orders | "Fetching your orders…", "Orders didn't load", "No orders yet", "Start shopping", "Order <n>" |
 | Gift cards | "Check a balance", "Card code", "Check balance", "Balance: $25.00", "We don't recognise that code", "Choose", "Choose a design", "A $<n> card with the <Fern/Stone> design" |
+| Lab (1.1) | "Lobby", "Lobby (Views)" (Android), "Lobby (UIKit)" (iOS) |
+| Lobby (1.1) | "Touch log", "Nothing touched", "Touches: <n>", "Reset", "Tapped: <what> (<where>)", "Long-pressed: <what> (<where>)", "Double-tapped: <what> (<where>)", "Saved appears after", "0 s", "3 s", "6 s", "12 s", "20 s", the five banner titles, "A test banner", "Banner <n> of 5", "Auto-advance", "Show the pager", "Top 10: tiles <a>–<b> of 10", "Top 10: tile <a> of 10", "Top 10, tile <m>", the twelve chip labels, "Row <n>: tiles <a>–<b> of 20", "Row <n>: tile <a> of 20", "Grid", "Inner list", "Line <n> of 30", "Board: top-left <cell>", "A1" to "Z26", "End of the lobby", "A test bench: nothing here is for sale.", "Home", "Live", "Saved", "Offers", "Saved: nothing yet", "Row <n>, tile <m>", "Back to the lobby", "A test banner. Nothing here is for sale.", "Open", "Preview", "Rate" |
 | Settings | every label in §5, "Notification sent", "Cart and orders emptied" |
 
 ## 7. Test ids
 
 **One list for all five apps:** [`nthcase/test-ids.json`](nthcase/test-ids.json). It is machine-readable, and each
-repository's tests check their app against it. Ids are `snake_case`, `^[a-z][a-z0-9_]*$`, and start with their
-screen's name. `{id}` is an item number (1–40), `{n}` a slot or order number, `{key}` an aisle key. `web_*` ids are
-HTML `id` and `data-testid` attributes in the bundled page.
+repository's tests check their app against it. Ids are `snake_case`, `^[a-z][a-z0-9_]*$`, and start with their screen's
+name. `{id}` is an item number (1–40), `{n}` a slot or order number, `{key}` an aisle key. `web_*` ids are HTML `id` and
+`data-testid` attributes in the bundled page. On the Lobby (1.1), `{n}` is a banner (1–5), chip (1–12), row (1–4), grid
+cell (1–12) or inner-list line (1–30), `{m}` a tile in its row (1–20, or 1–10 in the Top 10 row), `{s}` a delay in
+seconds (0, 3, 6, 12, 20), and `{col}{row}` a board cell, letter then number (`a1` to `z26`).
 
 **An id must sit on an element that is its own accessibility node.** Platforms fold children into a parent's node: a
 clickable row, a Material navigation item, a text field's supporting text, a SwiftUI `.accessibilityElement(children:
@@ -336,7 +508,9 @@ Flutter and React Native it is the framework's id, `webview`.
 
 ### The list
 
-147 ids. The gift-cards screen has none, by design.
+193 ids: 1.0's 147 and the Lobby's 46. The gift-cards screen has none, by design. `lab_lobby_views` exists only in the
+apps that build the Lobby twice (Android and iOS). The classic-toolkit Lobby carries every other Lobby id unchanged;
+on Android its ids are view ids, so Appium reads them as `com.nthcase.sample:id/lobby_pager`.
 
 | Id | Screen | Element | On screen when |
 | --- | --- | --- | --- |
@@ -404,6 +578,52 @@ Flutter and React Native it is the framework's id, `webview`.
 | `lab_slow` | lab | Opens Delivery slots (slow screen) | shown |
 | `lab_orders` | lab | Opens Orders (empty and error states) | shown |
 | `lab_gift_cards` | lab | Opens Gift cards (no ids) | shown |
+| `lab_lobby` | lab | Opens the Lobby (1.1) | shown |
+| `lab_lobby_views` | lab | Opens the Lobby built with the classic view toolkit (1.1) | Android and iOS only |
+| `lobby_screen` | lobby | Screen root | shown |
+| `lobby_touch_log` | lobby | Touch log: "Nothing touched", or the last touches, newest first | shown |
+| `lobby_touch_count` | lobby | Touches: N, since the last reset | shown |
+| `lobby_touch_reset` | lobby | Reset the log and the count | shown |
+| `lobby_saved_delay` | lobby | Saved appears after (one choice of five) | shown |
+| `lobby_saved_delay_{s}` | lobby | One choice: 0, 3, 6, 12 or 20 s | shown |
+| `lobby_pager_shown` | lobby | Show the pager (switch, on); off removes the pager and its position line | shown |
+| `lobby_pager` | lobby | Promo pager; the first scrollable in the tree while shown | no panel open, the pager on |
+| `lobby_banner_{n}` | lobby | Banner 1–5 | its page shown |
+| `lobby_pager_position` | lobby | Banner 1 of 5 | no panel open, the pager on |
+| `lobby_pager_auto` | lobby | Auto-advance (switch, off) | no panel open, the pager on |
+| `lobby_top_row_position` | lobby | Top 10: tiles 1–3 of 10 | no panel open |
+| `lobby_top_row` | lobby | The Top 10 row (horizontal, fixed, outside the page); the first scrollable when the pager is off | no panel open |
+| `lobby_top_row_tile_{m}` | lobby | Tile m of the Top 10 row, 1–10 | scrolled into view |
+| `lobby_page` | lobby | The page: the vertical scroller | no panel open |
+| `lobby_chips` | lobby | Chips row (horizontal) | scrolled into view |
+| `lobby_chip_{n}` | lobby | Chip 1–12 | scrolled into view |
+| `lobby_row_{n}` | lobby | Tile row 1–4 (horizontal) | scrolled into view |
+| `lobby_row_{n}_position` | lobby | Row 2: tiles 1–3 of 20 | scrolled into view |
+| `lobby_row_{n}_tile_{m}` | lobby | Tile m of row n | scrolled into view |
+| `lobby_grid` | lobby | The grid (2 × 6, does not scroll) | scrolled into view |
+| `lobby_grid_cell_{n}` | lobby | Grid cell 1–12 | scrolled into view |
+| `lobby_inner_list` | lobby | The inner list (vertical, 240 high) | scrolled into view |
+| `lobby_inner_row_{n}` | lobby | Line 1–30 | scrolled into view |
+| `lobby_board` | lobby | The board (scrolls both ways) | scrolled into view |
+| `lobby_board_position` | lobby | Board: top-left A1 | scrolled into view |
+| `lobby_board_cell_{col}{row}` | lobby | Board cell a1–z26, shown as A1–Z26 | scrolled into view |
+| `lobby_footer` | lobby | End of the lobby | scrolled to the end |
+| `lobby_bar` | lobby | The Lobby's own bottom bar | shown |
+| `lobby_bar_home` | lobby | Bar: Home | shown |
+| `lobby_bar_live` | lobby | Bar: Live | shown |
+| `lobby_bar_saved` | lobby | Bar: Saved; absent from the tree until its delay has passed | after the delay |
+| `lobby_bar_offers` | lobby | Bar: Offers | shown |
+| `lobby_saved_screen` | lobby | Saved panel: "Saved: nothing yet" | after a tap on Saved |
+| `lobby_detail` | lobby | Tile detail | after a tile tap |
+| `lobby_detail_back` | lobby | Detail: Back to the lobby | detail |
+| `lobby_promo` | lobby | Promo | after a banner tap |
+| `lobby_promo_back` | lobby | Promo: Back to the lobby | promo |
+| `lobby_sheet` | lobby | Quick sheet | after a long press on a tile or banner |
+| `lobby_sheet_title` | lobby | Quick sheet: title | quick sheet |
+| `lobby_sheet_open` | lobby | Quick sheet: Open | quick sheet |
+| `lobby_sheet_preview` | lobby | Quick sheet: Preview | quick sheet |
+| `lobby_sheet_saved` | lobby | Quick sheet: Saved | quick sheet |
+| `lobby_sheet_rate` | lobby | Quick sheet: Rate | quick sheet |
 | `form_screen` | form | Screen root | shown |
 | `form_name` | form | Full name (text) | shown |
 | `form_name_error` | form | Name error | after Join, invalid |
@@ -524,19 +744,36 @@ scenario column names the file in `nthcase/scenarios/`.
 | `location` | **not exercised**: it would need a location permission, and the spec allows one prompt (§13) | — |
 | two-finger rotation | `gestures_rotate`: there for the day NthCase plays it (§13) | — |
 | open a deep link | `nthcase-sample://item/{id}`: no NthCase verb yet (§13) | 11 |
+| `scroll` (to an element), 1.1 | the Lobby's page to "End of the lobby" and back; the page to a tile row; a row to its tile 15; the page to the board, then the board both ways to M18 | 12, 13, 14 |
+| `swipe` (a direction), 1.1 | the promo pager, left, one banner at a time | 15 |
+| `tap`, 1.1 | a delay choice; Show the pager; a tile; a banner; a board cell; a bar item; Back to the lobby | 13–20 |
+| `longpress`, 1.1 | a tile, which opens the quick sheet | 13 |
+| `doubletap`, 1.1 | a board cell | 14 |
+| `back`, 1.1 | system Back closes the quick sheet | 13 |
+| `waitFor`, 1.1 | the bar's late Saved, by the tap's own wait | 16–20 |
+| `assert` · `textContains` / `notTextContains`, 1.1 | the touch log after every scroll, swipe and tap | 12–20 |
+| `assert` · `notExists`, 1.1 | Saved absent from the bar before its delay; the pager absent with Show the pager off | 16–20 |
 
 The **hard cases** are covered as follows. The slow load and the failed load with retry are covered in 08. The modal
 (03) and the system permission prompt (09) each have a scenario. The web view is 07, and the screen with no ids, found
 by text and position, is 10. The long list sits behind a search (02), and the classic-toolkit screen with its own
-dialog is 09. Two controls share one text on the gift-cards screen.
+dialog is 09. Two controls share one text on the gift-cards screen. Spec 1.1 adds the screen of many scrollers, a
+horizontal one first in the tree (a pager, or with the pager off a row of tiles), and a control that appears late
+(12–20).
 
 ## 9. Scenarios
 
-Eleven plain-language scenarios live in [`nthcase/scenarios/`](nthcase/scenarios), the same files in every repository.
-Each file is one `create_scenario`: its title is the name, its first paragraph the description, and each numbered line
-a step's `instruction`. An indented `Expect:` line is that step's `expected`. Checks quote texts of four letters or
-more, which NthCase finds anywhere on the screen. A number or a price names its element's id, because a bare "$28.00"
-needs one. Scenarios 01–10 are for the nightly schedule. 11 waits for a deep-link verb.
+Twenty plain-language scenarios live in [`nthcase/scenarios/`](nthcase/scenarios), the same files in every
+repository. Each file is one `create_scenario`: its title is the name, its first paragraph the description, and each
+numbered line a step's `instruction`. An indented `Expect:` line is that step's `expected`. Checks quote texts of four
+letters or more, which NthCase finds anywhere on the screen. A number or a price names its element's id, because a bare
+"$28.00" needs one. Scenarios 01–10 are for the nightly schedule. 11 waits for a deep-link verb.
+
+12–20 (1.1) are the Lobby's. Each checks the touch log after every scroll, swipe and tap. 16, 18, 19 and 20 reproduce
+run `00ec77f5` and are **expected to fail on today's NthCase** on some platforms; they say how. In 16 and 18 the first
+scrollable is the pager, so the victim is a banner. 19 turns the pager off, so the first scrollable is the Top 10 row
+and the victim is a tile, as in the run. 18 is 16 and 20 is 19 on the classic-toolkit Lobby, so only Android and iOS run
+them. Any other Lobby scenario can be run on that Lobby by tapping `lab_lobby_views` instead of `lab_lobby`.
 
 ## 10. Design
 
@@ -636,6 +873,75 @@ Every job has a timeout. Public repositories get Actions minutes free, macOS inc
 
 Any framework that cannot meet a rule writes why in its README, and the next spec version decides.
 
+### The Lobby, per framework (1.1)
+
+Every scroller is a real scroller of its kind, the platform's or the framework's own: a pager, a horizontal list, a
+vertical list, a list inside the list, and one view that scrolls both ways. Every tile, chip, banner, cell, line and bar
+item is its own accessibility node with its own id. Each app's README says which widget it uses for each part, and its
+tests prove, in the tree Appium reads: the pager is the first scrollable; with Show the pager off the pager is absent
+and the Top 10 row is the first scrollable; and Saved is absent before its delay.
+
+| Part | Android, Compose (`lab_lobby`) | Android, Views (`lab_lobby_views`) |
+| --- | --- | --- |
+| page | `LazyColumn` | `NestedScrollView` |
+| pager | `HorizontalPager` (foundation), above the page; left out of the composition when Show the pager is off | `ViewPager2`, above the page; its frame is removed from its parent (`removeView`, not `GONE`) when off |
+| Top 10 row | `LazyRow`, between the pager and the page, outside the page | `RecyclerView` with a horizontal `LinearLayoutManager`, between the pager and the `NestedScrollView` |
+| chips, tile rows | `LazyRow`; a chip is drawn as a chip on `combinedClickable`, because Material 3's `FilterChip` takes no long press | `RecyclerView` with a horizontal `LinearLayoutManager`; chips are Material `Chip` |
+| grid | plain rows in one page item | `GridLayout` (platform) |
+| inner list | `LazyColumn`, 240 dp high, inside the page (nested scroll) | `RecyclerView`, 240 dp high, nested scrolling into the `NestedScrollView` |
+| board | one `Box` with `horizontalScroll` and `verticalScroll`: one node with both scroll ranges. Each modifier brings its own accessibility scroll action and the node keeps one, so an accessibility scroll would move one axis; the board adds its own action that moves both | a `FrameLayout` subclass that scrolls both ways with `scrollTo` and an `OverScroller`, and says so to accessibility (scrollable, the four scroll directions); Android has no two-axis scroller of its own |
+| bar | Material 3 `NavigationBar` | Material `BottomNavigationView`; Saved is a menu item added and removed |
+| quick sheet | Material 3 `ModalBottomSheet`, its own window: `testTagsAsResourceId` again inside it | Material `BottomSheetDialog`, its own window |
+| touches | `combinedClickable` (tap, long press, double tap) | the view's own click and long click; a tap counts once `ViewConfiguration.getDoubleTapTimeout()` has passed with no second click |
+| ids | `testTag`, `resource-id="lobby_pager"` | view ids declared in `res/values`, `resource-id="com.nthcase.sample:id/lobby_pager"` |
+
+- **iOS, SwiftUI (`lab_lobby`):** the page a vertical `ScrollView` with a `LazyVStack`; the pager a horizontal
+  `ScrollView` with `.scrollTargetBehavior(.paging)`, above the page, inside an `if` for Show the pager; the Top 10 row
+  a horizontal `ScrollView` with `LazyHStack` between the pager and the page, outside the page; chips and rows
+  horizontal `ScrollView`s with `LazyHStack`; the inner list a `ScrollView` in a 240 pt frame; the board one
+  `ScrollView([.horizontal, .vertical])`; the bar an `HStack` of buttons (the app's `TabView` bar is the app's, not the
+  Lobby's); the quick sheet `.sheet` with a medium detent; touches `onTapGesture(count: 2)`, `onTapGesture` and
+  `onLongPressGesture`. Never combine a tile's children (`.accessibilityElement(children: .combine)` hides their
+  identifiers, §7), but give the tile itself its identifier. Saved is left out of the `HStack`, not hidden with
+  `opacity` or `.hidden()`.
+- **iOS, UIKit (`lab_lobby_views`, "Lobby (UIKit)"):** the page a `UICollectionView` with a compositional layout whose
+  chip and tile sections scroll orthogonally (`.continuous`); the pager its own `UICollectionView` (or a paging
+  `UIScrollView`) above it, so that it is first, removed from its superview when Show the pager is off; the Top 10 row
+  its own horizontal `UICollectionView` between the pager and the page; the grid a plain section; the inner list a
+  `UITableView` 240 pt high in a cell; the board a `UIScrollView` whose content is wider and taller than its frame; the
+  bar a `UIStackView` of buttons; the quick sheet a view controller with `UISheetPresentationController`. XCUITest has
+  no "first scrollable" as UiAutomator has; the iOS round reports what `mobile: scroll` and NthCase's iOS reach pick on
+  this screen.
+- **Flutter:** the page a `ListView`; the pager a `PageView` above it, a conditional child for Show the pager; the Top
+  10 row a horizontal `ListView` between the pager and the page; chips and rows horizontal `ListView`s; the inner
+  list a `ListView` in a 240-high `SizedBox`; the board a `TwoDimensionalScrollView` (in Flutter's framework since
+  3.13), so it is one scroller with both axes, not two nested ones; the bar a `NavigationBar`; the sheet
+  `showModalBottomSheet`; touches a `GestureDetector` with `onTap`, `onLongPress` and `onDoubleTap`. Every id is
+  `Semantics(identifier:)`, on the tile itself, and every scroller says it scrolls in its semantics (Flutter's
+  scrollables do; check the Android tree's `scrollable="true"`, and that the `PageView`'s node comes first).
+- **React Native:** the page a `ScrollView`; the pager a horizontal `FlatList` with `pagingEnabled` above it (the
+  community pager is not used: the core list is enough), rendered only while Show the pager is on; the Top 10 row a
+  horizontal `FlatList` between the pager and the page, outside the page's `ScrollView`; chips and rows horizontal
+  `FlatList`s; the inner list a `FlatList` 240 high with `nestedScrollEnabled` (Android needs it); the board a vertical
+  `ScrollView` holding a horizontal one on Android, where `ScrollView` scrolls one way only, and one `ScrollView` that
+  scrolls both ways on iOS. Say in the README that Android's board is two scrollers. Touches: `Pressable` with
+  `onPress`, `onLongPress` and a double tap timed by hand; the sheet a `Modal` sliding from the bottom. `testID` on each
+  `Pressable`, and watch `accessible` grouping (§7).
+- **Ionic React (Android, iOS and the browser):** CSS scrollers. The page is `ion-content`'s scroll element; the pager a
+  `div` with `overflow-x: auto` and `scroll-snap-type: x mandatory`, outside `ion-content` so it comes first, taken out
+  of the DOM when Show the pager is off (not `display: none`); the Top 10 row a `div` with `overflow-x: auto`, also
+  outside `ion-content`, after the pager; chips and rows `overflow-x: auto`; the inner list `overflow-y: auto` with a
+  fixed height; the board `overflow: auto` on a fixed square. Long press and double tap from pointer events, with
+  `user-select: none`, `-webkit-touch-callout: none` and `touch-action: manipulation`, so the web view's own text
+  selection and double-tap zoom stay out of it; say the timeouts in the README. The sheet is `ion-modal` with
+  breakpoints. Ids are HTML `id` and `data-testid`. In the native tree the web view's nodes say "scrollable" by the
+  browser engine's rules, not the app's: the round records what UiAutomator2 and XCUITest list.
+- **The web lab** (`nthcase-ci-demo/site/lab`): one page, `lobby.html`, linked from the menu as "Lobby" (`menu_lobby`),
+  with the same layout, texts and ids as HTML `id` and `data-testid`, built as Ionic's is but in plain HTML, CSS and
+  JavaScript. The page also writes the touch log's first line into the lab's own oracle, `#eval_state` ("idle" until the
+  first touch). It keeps no storage, so the delay choice and Show the pager live until the page reloads; `?saved=12` in
+  the address chooses a delay at load, and `?pager=off` turns the pager off. There is no classic-toolkit Lobby.
+
 ## 13. Known gaps
 
 What NthCase cannot do yet, as read from GuruAI's code on 2026-11-03. The apps are ready for each:
@@ -650,3 +956,9 @@ What NthCase cannot do yet, as read from GuruAI's code on 2026-11-03. The apps a
 - **Spinners** last 3 s, which is shorter than a step on a real device, so checks name the content after the wait, not
   the spinner itself.
 - **No hide-keyboard step.** The form scrolls its fields above the keyboard, and Join is reachable by scrolling.
+- **A scroll that touches (1.1).** On Android, NthCase's reach, its `scroll` to an element and its scroll into view
+  all run `new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(…)` (GuruAI
+  `AndroidReplayEngine.cs`, read on 2026-11-18). That picks the first scrollable in the tree and swipes it vertically.
+  On the Lobby the first scrollable is the horizontal pager, or the Top 10 row when the pager is off, so such a swipe
+  can reach a banner or a tile as a tap or a long press. Scenarios 12–20 show where it does; GuruAI's fix waits for
+  those results.

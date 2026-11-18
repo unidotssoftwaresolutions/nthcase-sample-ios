@@ -6,9 +6,9 @@ import XCTest
 /// With `MOSSGROVE_SCREENSHOTS` set (CI passes `TEST_RUNNER_MOSSGROVE_SCREENSHOTS`), the pictures are written there as
 /// PNG files; they are always kept as attachments of the result bundle too.
 ///
-/// The 24 screens are ten tests, each from a cold start, so a screen that fails costs only its own group: the run
-/// still makes every other picture. `scripts/ci-screenshots.sh` checks that all 24 files are there and names any
-/// that is not.
+/// The 31 screens are eleven tests, each from a cold start, so a screen that fails costs only its own group: the run
+/// still makes every other picture. `scripts/ci-screenshots.sh` checks that all 31 files are there and names any
+/// that is not. 25–31 are the Lobby (1.1), in SwiftUI and in UIKit, with the pager on and off.
 final class ScreenshotTests: XCTestCase {
     private var app: XCUIApplication!
     private var folder: URL?
@@ -184,5 +184,57 @@ final class ScreenshotTests: XCTestCase {
         app.openLinkWhileRunning("nthcase-sample://item/999")
         wait("item_not_found")
         shot("24-deep-link-unknown")
+    }
+
+    /// The Lobby's seven, under the Android app's names: 25–27 and 30 the SwiftUI Lobby, 28, 29 and 31 the UIKit one
+    /// ("views", as Android calls its classic-toolkit Lobby).
+    func test09Lobby() {
+        app.signIn()
+        openLobby("lab_lobby")
+        shot("25-lobby")
+        boardCellTapped()
+        shot("26-lobby-board")
+        app.scrollLobbyPage(until: app.id("lobby_row_1_tile_1"), up: true)
+        app.longPressWhenThere(app.id("lobby_row_1_tile_1"))
+        wait("lobby_sheet_rate")
+        shot("27-lobby-sheet", settle: 1.0)
+        app.id("lobby_sheet_rate").tapWhenThere()
+        XCTAssertTrue(app.id("lobby_sheet").waitToVanish(timeout: 5))
+        pagerOff()
+        shot("30-lobby-no-pager")
+        leaveLobby()
+
+        openLobby("lab_lobby_views")
+        shot("28-lobby-views")
+        boardCellTapped()
+        shot("29-lobby-views-board")
+        app.scrollLobbyPage(until: app.id("lobby_row_1_tile_1"), up: true)
+        pagerOff()
+        shot("31-lobby-views-no-pager")
+        leaveLobby()
+    }
+
+    private func openLobby(_ bench: String) {
+        app.openLab(bench)
+        wait("lobby_pager")
+        wait("lobby_bar_saved")
+    }
+
+    /// The page down to the board, and one cell of it tapped, so the log shows a line.
+    private func boardCellTapped() {
+        app.scrollLobbyPage(until: app.id("lobby_board_cell_b2"))
+        app.id("lobby_board_cell_b2").tapWhenThere()
+        XCTAssertTrue(app.id("lobby_touch_log").waitFor("Tapped: B2 (board)", timeout: 3))
+    }
+
+    private func pagerOff() {
+        app.id("lobby_pager_shown").set(false)
+        XCTAssertTrue(app.id("lobby_pager").waitToVanish(timeout: 5))
+    }
+
+    /// Show the pager is kept until the app closes: it is put back on for the next Lobby.
+    private func leaveLobby() {
+        app.id("lobby_pager_shown").set(true)
+        app.back()
     }
 }

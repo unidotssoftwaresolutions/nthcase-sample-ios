@@ -165,8 +165,58 @@ final class IdWalkTests: XCTestCase {
         },
     ]
 
+    /// The Lobby (1.1), built twice: `lab_lobby` (SwiftUI) and `lab_lobby_views` (UIKit) carry the same ids. Every
+    /// tap here is on an element of the Lobby's own, and the page is scrolled by a drag in its left margin, outside
+    /// every row, so the walk itself touches nothing by accident.
+    static func lobby(_ bench: String) -> [Step] {
+        [
+            Step(name: "Lobby (\(bench))", ids: ["lab_lobby", "lab_lobby_views", "top_bar_title", "top_bar_back"]) { app in
+                app.signIn()
+                app.openTab("nav_lab")
+            },
+            Step(name: "Lobby (\(bench)), open", ids: ["lobby_screen", "lobby_touch_log", "lobby_touch_count", "lobby_touch_reset",
+                                                       "lobby_saved_delay", "lobby_saved_delay_0", "lobby_saved_delay_3",
+                                                       "lobby_saved_delay_6", "lobby_saved_delay_12", "lobby_saved_delay_20",
+                                                       "lobby_pager_shown", "lobby_pager", "lobby_banner_1", "lobby_pager_position",
+                                                       "lobby_pager_auto", "lobby_top_row_position", "lobby_top_row",
+                                                       "lobby_top_row_tile_1", "lobby_page", "lobby_chips", "lobby_chip_1",
+                                                       "lobby_row_1_position", "lobby_row_1", "lobby_row_1_tile_1", "lobby_bar",
+                                                       "lobby_bar_home", "lobby_bar_live", "lobby_bar_saved", "lobby_bar_offers",
+                                                       "top_bar_title", "top_bar_back"]) { app in
+                app.id(bench).tapWhenThere()
+            },
+            Step(name: "Lobby (\(bench)), a tile's detail", ids: ["lobby_detail", "lobby_detail_back"]) { app in
+                app.id("lobby_top_row_tile_1").tapWhenThere()
+            },
+            Step(name: "Lobby (\(bench)), a banner's promo", ids: ["lobby_promo", "lobby_promo_back"]) { app in
+                app.id("lobby_detail_back").tapWhenThere()
+                app.id("lobby_banner_1").tapWhenThere()
+            },
+            Step(name: "Lobby (\(bench)), the quick sheet", ids: ["lobby_sheet", "lobby_sheet_title", "lobby_sheet_open",
+                                                                  "lobby_sheet_preview", "lobby_sheet_saved", "lobby_sheet_rate"]) { app in
+                app.id("lobby_promo_back").tapWhenThere()
+                app.longPressWhenThere(app.id("lobby_top_row_tile_1"))
+            },
+            Step(name: "Lobby (\(bench)), Saved", ids: ["lobby_saved_screen", "lobby_bar"]) { app in
+                app.id("lobby_sheet_rate").tapWhenThere()
+                _ = app.id("lobby_sheet").waitToVanish(timeout: 5)
+                app.id("lobby_bar_saved").tapWhenThere()
+            },
+            Step(name: "Lobby (\(bench)), lower down", ids: ["lobby_grid", "lobby_grid_cell_1", "lobby_inner_list", "lobby_inner_row_1",
+                                                             "lobby_board_position", "lobby_board", "lobby_board_cell_a1"]) { app in
+                app.id("lobby_bar_home").tapWhenThere()
+                app.scrollLobbyPage(until: app.id("lobby_board_cell_a1"))
+            },
+            Step(name: "Lobby (\(bench)), the end", ids: ["lobby_footer"]) { app in
+                app.scrollLobbyPage(until: app.id("lobby_footer"))
+            },
+        ]
+    }
+
     // MARK: Tests
 
+    func testLobby() { walk(Self.lobby("lab_lobby")) }
+    func testLobbyUIKit() { walk(Self.lobby("lab_lobby_views")) }
     func testSignedOut() { walk(Self.signedOut) }
     func testShopAndCart() { walk(Self.shopAndCart) }
     func testLabBenches() { walk(Self.labBenches) }
@@ -233,7 +283,7 @@ final class IdWalkTests: XCTestCase {
 
     /// The walk names every native id of the list at least once (templates by one instance or more).
     func testTheWalkCoversEveryId() {
-        let walked = (Self.signedOut + Self.shopAndCart + Self.labBenches + Self.settingsAndStates).flatMap(\.ids)
+        let walked = (Self.signedOut + Self.shopAndCart + Self.labBenches + Self.settingsAndStates + Self.lobby("lab_lobby")).flatMap(\.ids)
         let missing = SpecIds.shared.native.map(\.id).filter { entry in !walked.contains { SpecIds.matches($0, entry) } }
         XCTAssertEqual(missing, [], "ids the walk never checks")
         let unknown = walked.filter { id in !SpecIds.shared.native.contains { SpecIds.matches(id, $0.id) } }

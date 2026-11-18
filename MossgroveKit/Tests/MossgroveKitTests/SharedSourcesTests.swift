@@ -7,7 +7,7 @@ final class SharedSourcesTests: XCTestCase {
     /// SPEC.md §3's table is the catalogue, word for word.
     func testCatalogueIsSpecTable() throws {
         let spec = try Repo.text("SPEC.md")
-        XCTAssertTrue(spec.hasPrefix("# Mossgrove: the NthCase sample apps (spec 1.0)"))
+        XCTAssertTrue(spec.hasPrefix("# Mossgrove: the NthCase sample apps (spec 1.1)"))
         let rows = spec.split(separator: "\n").filter { $0.range(of: #"^\| 0[0-4]\d \|"#, options: .regularExpression) != nil }
         XCTAssertEqual(rows.count, 40)
         for (row, item) in zip(rows, Catalog.items) {
@@ -32,14 +32,30 @@ final class SharedSourcesTests: XCTestCase {
             Texts.slotsLoading, Texts.slotsIntro, Texts.ordersLoading, Texts.ordersFailed, Texts.ordersFailedHelp,
             Texts.noOrders, Texts.noOrdersHelp, Texts.giftUnknown, Texts.notificationsNotAllowed, Texts.notificationsOn,
             Texts.testingHelp, Texts.slowLoading, Texts.failFirstLoad, Texts.resetTitle, Texts.resetBody, Texts.resetDone,
-            Texts.notificationSent, Texts.testNotificationTitle, Texts.version("1.0.0"),
+            Texts.notificationSent, Texts.testNotificationTitle, Texts.version("1.1.0"),
             FormRules.name, FormRules.email, FormRules.age, FormRules.password, FormRules.category, FormRules.date, FormRules.terms,
             GestureWords.doubleTapped, GestureWords.dropped, GestureWords.dropMissed, GestureWords.scrolledTo,
         ] {
             XCTAssertNotNil(spec.range(of: text), "SPEC.md does not say \"\(text)\"")
         }
+        // the Lobby's (1.1): every word both builds show, as SPEC.md §5 and §6 write it
+        let lists: [String] = Lobby.bannerTitles + Lobby.chips + Lobby.barItems + Lobby.sheetButtons
+        let delays: [String] = Lobby.delays.map { "\"\(Lobby.delayLabel($0))\"" }
+        let fixed: [String] = [
+            Lobby.nothingTouched, Lobby.touchLogLabel, Lobby.savedAppearsAfter, Lobby.showThePager, Lobby.autoAdvance,
+            Lobby.testBanner, Lobby.footer, Lobby.footerNote, Lobby.promoNote, Lobby.backToLobby, Lobby.savedEmpty,
+            Lobby.labLine, Lobby.labLineUIKit, "\"\(Lobby.titleUIKit)\"", "\"\(Lobby.grid)\"", "\"\(Lobby.innerList)\"",
+            "\"\(Lobby.reset)\"", "Touches: <n>", "Banner <n> of 5", "Board: top-left <cell>", "Line <n> of 30",
+            "Top 10: tiles <a>–<b> of 10", "Top 10: tile <a> of 10", "Row <n>: tiles <a>–<b> of 20", "Row <n>: tile <a> of 20",
+            "Tapped: Bedside Lamp (row 3, tile 15)", "Long-pressed: Pocket Notebook (top row, tile 2)", "Double-tapped: M18 (board)",
+            "Tapped: Saved (quick sheet, Bedside Lamp)", "Tapped: Saved (bar)", "\"Row 3, tile 15\" (\"Top 10, tile 2\"",
+        ]
+        for text in lists + fixed + delays {
+            XCTAssertNotNil(spec.range(of: text), "SPEC.md does not say \"\(text)\"")
+        }
         let scenarios = try FileManager.default.contentsOfDirectory(atPath: Repo.url("nthcase/scenarios").path).sorted()
-        XCTAssertEqual(scenarios.count, 12)
+        // 01-11, the Lobby's 12-20 (1.1), and the README
+        XCTAssertEqual(scenarios.count, 21)
         XCTAssertEqual(scenarios.first, "01-sign-in.md")
         XCTAssertEqual(scenarios.last, "README.md")
     }
