@@ -406,16 +406,47 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(checkout.isHittable, "Check out is not hittable at \(checkout.frame)", file: file, line: line)
     }
 
-    /// The banner sits above the Cart's checkout panel, never over Check out: straight from Add to cart to the Cart,
-    /// inside the banner's 10 s, Check out is free and opens the dialog.
+    /// The banner sits above the Cart's checkout panel, never over Check out: with a banner up on the Cart, Check out
+    /// is free and opens the dialog.
+    ///
+    /// The banner is the Shop's, from a refresh, and the Cart is then one tap away on the bar. Until now the test took
+    /// the Add-to-cart banner to the Cart by Back and the tab, and in CI run 44388145174 it read the Cart 23 s after
+    /// Add to cart, long after the banner's 10 s: Back's 1.5 s look for iOS's "Save Password?" card took 9.7 s on that
+    /// runner, and the tab 6.5 s. The two runs before had passed with 0.8 s and 1.9 s to spare. The app has no way to
+    /// bring a banner onto a full Cart without that walk: View cart closes the banner as it opens the Cart, and the
+    /// Cart's own banner (Order placed) comes with an empty cart and no Check out.
+    ///
+    /// So the time is measured, not hoped for: a try counts when the Cart shows the banner within 6 s of its being seen,
+    /// which leaves checkOutIsFree about 4 s for its own looks, and a slower try is made again, three times at most.
     func testTheBannerLeavesCheckOutFree() {
         app.signIn()
         app.id("shop_item_1").tapWhenThere()
         app.id("item_add_to_cart").tapWhenThere()
-        XCTAssertTrue(app.id("snackbar").waitForExistence(timeout: 5), "no banner after Add to cart")
         app.back()
-        app.openTab("nav_cart")
-        XCTAssertTrue(app.id("snackbar").exists, "the banner from Add to cart was gone before the Cart opened: nothing was checked")
+        var tries: [String] = []
+        var bannerOnTheCart = false
+        for attempt in 1...3 where !bannerOnTheCart {
+            if attempt > 1 { app.openTab("nav_shop") }
+            XCTAssertTrue(app.id("shop_list").waitForExistence(timeout: 5), "the shop's list is not on screen")
+            app.answerSavePasswordCard()
+            pullToRefresh(app)
+            guard app.id("snackbar_text").waitFor("Catalogue is up to date", timeout: 8) else {
+                tries.append("try \(attempt): no banner 8 s after the refresh")
+                continue
+            }
+            let seen = Date()
+            // the bare tap: no look for the card, no wait for hittable, so nothing but the tab change runs the clock
+            app.tab("nav_cart").tap()
+            let onTheCart = app.id("cart_screen").waitForExistence(timeout: 5)
+            let up = app.id("snackbar").exists
+            let after = Date().timeIntervalSince(seen)
+            tries.append("try \(attempt): " + (onTheCart ? "the Cart" : "no cart_screen")
+                         + String(format: " %.1f s after the banner was seen, ", after) + (up ? "banner up" : "banner gone"))
+            bannerOnTheCart = onTheCart && up && after < 6
+        }
+        XCTContext.runActivity(named: "The banner on the Cart: " + tries.joined(separator: "; ")) { _ in }
+        XCTAssertTrue(bannerOnTheCart, "no try had the banner on the Cart within 6 s, so nothing was checked: "
+                      + tries.joined(separator: "; "))
         checkOutIsFree()
         app.id("cart_checkout").tapWhenThere()
         expect("dialog_title", shows: "Place this order?")
