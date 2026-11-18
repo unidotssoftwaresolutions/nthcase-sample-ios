@@ -423,6 +423,13 @@ final class FlowTests: XCTestCase {
 
     /// The budget lands on the step the fraction names, as NthCase's `slide` sets it ($0–200, $10 steps): from $50,
     /// and from wherever the last move left it.
+    ///
+    /// Each slide is given 10 s to show its step, and a slide that does not lists what every look saw and when. Until
+    /// 1.1 this test gave each slide 2 s, where the flows' other checks of what a screen shows wait 5 s, and then read
+    /// the label once more for its message. In CI run 44323850081 the simulator answered each look in 1.2 s and some in 6 to 20 s, for this test
+    /// alone and from its sign-in on: 2 s held one or two looks, and the later read showed the right step, so the run
+    /// said "0.3 shows $60, not $60". Same Xcode (26.6, 17F113), same iOS 26.5, and no change to the form, the slider
+    /// or this test since v1.0.0, where it passed in 33 s.
     func testTheBudgetLandsWhereSlideSetsIt() {
         app.signIn()
         app.openLab("lab_form")
@@ -431,8 +438,10 @@ final class FlowTests: XCTestCase {
         var wrong: [String] = []
         for (fraction, shown) in [(0.6, "$120"), (0.3, "$60"), (1.0, "$200"), (0.0, "$0"), (0.45, "$90"), (0.6, "$120")] {
             slider.adjust(toNormalizedSliderPosition: CGFloat(fraction))
-            let value = app.id("form_budget_value")
-            if !value.waitFor(shown, timeout: 2) { wrong.append("\(fraction) shows \(value.label), not \(shown)") }
+            let looks = app.id("form_budget_value").looksUntil(shows: shown, timeout: 10)
+            if looks.last?.shown != shown {
+                wrong.append("\(fraction) never showed \(shown) in 10 s; it showed " + looks.map(\.line).joined(separator: ", "))
+            }
         }
         XCTAssertEqual(wrong, [], "the budget after each slide")
     }

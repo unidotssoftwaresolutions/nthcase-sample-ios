@@ -49,6 +49,23 @@ final class LobbyUIKitTests: XCTestCase {
         }
     }
 
+    /// Show the pager switched off and on again, as a person does it: the pager is back in its own place, before the
+    /// Top 10 row, and gone again when switched off a second time.
+    func testThePagerComesBackInItsPlace() {
+        let scrollers = [TestIds.lobbyPager, TestIds.lobbyTopRow, TestIds.lobbyPage]
+        let controller = open()
+        guard let toggle = controller.view.findView(TestIds.lobbyPagerShown) as? UISwitch else {
+            return XCTFail("no switch named \(TestIds.lobbyPagerShown)")
+        }
+        for (on, expected) in [(false, [TestIds.lobbyTopRow, TestIds.lobbyPage]), (true, scrollers),
+                               (false, [TestIds.lobbyTopRow, TestIds.lobbyPage]), (true, scrollers)] {
+            toggle.isOn = on
+            toggle.sendActions(for: .valueChanged)
+            controller.view.layoutIfNeeded()
+            XCTAssertEqual(identifiers(in: controller.view).filter(scrollers.contains), expected, "with Show the pager \(on ? "on" : "off")")
+        }
+    }
+
     /// Before its delay, Saved is not a view of the bar at all: three buttons, and no view named lobby_bar_saved.
     func testSavedIsNoViewBeforeItsDelay() {
         let controller = open(delay: 12)

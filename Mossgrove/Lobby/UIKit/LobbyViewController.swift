@@ -424,11 +424,15 @@ final class LobbyViewController: UIViewController {
         delayRow.layer.borderColor = Palette.outline.resolvedColor(with: traitCollection).cgColor
     }
 
-    /// Off, the pager's frame leaves its superview: no view, no node in the tree. On, it comes back on its banner.
+    /// Off, the pager's frame leaves its superview: no view, no node in the tree. On, it comes back on its banner,
+    /// first among the stack's subviews as well as first in its layout. `insertArrangedSubview(_:at:)` alone appends
+    /// a view that is not yet a subview to the END of `subviews`, so the pager came after the Top 10 row and the page
+    /// in the view tree (CI run 44323850081, LobbyUIKitTests), on the first open as after off and on.
     private func renderPagerShown() {
         pagerSwitch.toggle.isOn = model.lobbyPagerShown
         if model.lobbyPagerShown {
             if pagerFrame.superview == nil {
+                lobbyStack.insertSubview(pagerFrame, at: 0)
                 lobbyStack.insertArrangedSubview(pagerFrame, at: 0)
                 lobbyStack.layoutIfNeeded()
                 if banner > 1 && pager.bounds.width > 0 {

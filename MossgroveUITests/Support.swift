@@ -132,8 +132,11 @@ extension XCUIApplication {
     /// The Lobby's page, scrolled by a drag in its left margin (8 points in, where no row, grid, inner list or board
     /// is), until `element` is on screen or the page stops moving. A swipe at the screen's centre could land on a tile
     /// row, the inner list or the board and move that instead.
+    ///
+    /// `gently`: each drag is slow and holds still before it lifts, so the page does not fling on and moves only the
+    /// drag's own 60 % of its height. A flung drag can carry a small element past the page's view between two looks.
     @discardableResult
-    func scrollLobbyPage(until element: XCUIElement, up: Bool = false, tries: Int = 25) -> XCUIElement {
+    func scrollLobbyPage(until element: XCUIElement, up: Bool = false, gently: Bool = false, tries: Int = 25) -> XCUIElement {
         let page = id("lobby_page")
         guard page.waitForExistence(timeout: 8) else { return element }
         var left = tries
@@ -142,7 +145,12 @@ extension XCUIApplication {
             let origin = coordinate(withNormalizedOffset: .zero)
             let low = origin.withOffset(CGVector(dx: frame.minX + 8, dy: frame.minY + frame.height * 0.8))
             let high = origin.withOffset(CGVector(dx: frame.minX + 8, dy: frame.minY + frame.height * 0.2))
-            if up { high.press(forDuration: 0.05, thenDragTo: low) } else { low.press(forDuration: 0.05, thenDragTo: high) }
+            let (from, to) = up ? (high, low) : (low, high)
+            if gently {
+                from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.2)
+            } else {
+                from.press(forDuration: 0.05, thenDragTo: to)
+            }
             left -= 1
         }
         return element
@@ -361,6 +369,27 @@ extension XCUIElement {
     func waitFor(_ text: String, timeout: TimeInterval = 5) -> Bool {
         let predicate = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)
         return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: self)], timeout: timeout) == .completed
+    }
+
+    /// What the element shows, looked at again and again until it shows exactly `text` or `timeout` has passed: each
+    /// look's label (its value when it has no label) and when it was read, so a failure says what was really seen, and
+    /// when, rather than what a later read found.
+    func looksUntil(shows text: String, timeout: TimeInterval) -> [Look] {
+        let start = Date()
+        var looks: [Look] = []
+        repeat {
+            let seen = exists ? shown : "nothing in the tree"
+            looks.append(Look(shown: seen, after: Date().timeIntervalSince(start)))
+            if seen == text { break }
+            Thread.sleep(forTimeInterval: 0.25)
+        } while Date().timeIntervalSince(start) < timeout
+        return looks
+    }
+
+    struct Look {
+        let shown: String
+        let after: TimeInterval
+        var line: String { "\"\(shown)\" at \(String(format: "%.1f", after)) s" }
     }
 
     func waitToVanish(timeout: TimeInterval = 5) -> Bool {

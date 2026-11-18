@@ -170,7 +170,9 @@ final class IdWalkTests: XCTestCase {
     /// every row, so the walk itself touches nothing by accident.
     static func lobby(_ bench: String) -> [Step] {
         [
-            Step(name: "Lobby (\(bench))", ids: ["lab_lobby", "lab_lobby_views", "top_bar_title", "top_bar_back"]) { app in
+            // The Lab is a tab's first screen: it has no Back (1.0's "Lab" step does not ask for one either). Back is
+            // the Lobby's, checked on the next step (CI run 44323850081 looked for it here).
+            Step(name: "Lobby (\(bench))", ids: ["lab_lobby", "lab_lobby_views", "top_bar_title"]) { app in
                 app.signIn()
                 app.openTab("nav_lab")
             },
@@ -202,9 +204,16 @@ final class IdWalkTests: XCTestCase {
                 _ = app.id("lobby_sheet").waitToVanish(timeout: 5)
                 app.id("lobby_bar_saved").tapWhenThere()
             },
-            Step(name: "Lobby (\(bench)), lower down", ids: ["lobby_grid", "lobby_grid_cell_1", "lobby_inner_list", "lobby_inner_row_1",
-                                                             "lobby_board_position", "lobby_board", "lobby_board_cell_a1"]) { app in
+            // The grid has a step of its own. The page shows 176 to 393 points of itself, and a cell that scrolls out of
+            // it leaves the tree (SwiftUI's LazyVStack, UIKit's collection view), so by the time the board's first cell
+            // showed, the grid had gone (CI run 44323850081). The grid is reached by drags that do not fling: a flung
+            // drag moved the page about 300 points, more than a grid cell stays in sight.
+            Step(name: "Lobby (\(bench)), the grid", ids: ["lobby_grid", "lobby_grid_cell_1"]) { app in
                 app.id("lobby_bar_home").tapWhenThere()
+                app.scrollLobbyPage(until: app.id("lobby_grid_cell_1"), gently: true)
+            },
+            Step(name: "Lobby (\(bench)), lower down", ids: ["lobby_inner_list", "lobby_inner_row_1",
+                                                             "lobby_board_position", "lobby_board", "lobby_board_cell_a1"]) { app in
                 app.scrollLobbyPage(until: app.id("lobby_board_cell_a1"))
             },
             Step(name: "Lobby (\(bench)), the end", ids: ["lobby_footer"]) { app in
