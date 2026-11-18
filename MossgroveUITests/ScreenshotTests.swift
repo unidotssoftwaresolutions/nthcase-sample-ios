@@ -221,8 +221,16 @@ final class ScreenshotTests: XCTestCase {
     }
 
     /// The page down to the board, and one cell of it tapped, so the log shows a line.
+    ///
+    /// The page is moved gently, as the id walk reaches the board: drags that do not fling, each shorter than the
+    /// page's window, and back toward the cell if it has gone past. In CI run 44365074289 (light) the UIKit page's fifth
+    /// flung drag stopped with B2 in the tree but above the page's 258-point window (cell at y 426.7–482.7, window from
+    /// 529), so it was never hittable; the 20 drags left all went down, to the page's end, and XCUITest's own tap could
+    /// not bring it back (its scroll to visible ended with no hit point; the cell sits in the board, a scroller of its
+    /// own inside the page). The same five drags had stopped with B2 in the window in dark, and in both themes on the
+    /// run before. SwiftUI's page (176 points with the pager on) had the same risk.
     private func boardCellTapped() {
-        app.scrollLobbyPage(until: app.id("lobby_board_cell_b2"))
+        app.scrollLobbyPage(until: app.id("lobby_board_cell_b2"), gently: true)
         app.id("lobby_board_cell_b2").tapWhenThere()
         XCTAssertTrue(app.id("lobby_touch_log").waitFor("Tapped: B2 (board)", timeout: 3))
     }
