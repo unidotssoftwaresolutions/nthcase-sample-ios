@@ -135,6 +135,8 @@ extension XCUIApplication {
     ///
     /// `gently`: each drag is slow and holds still before it lifts, so the page does not fling on and moves only the
     /// drag's own 60 % of its height. A flung drag can carry a small element past the page's view between two looks.
+    /// If the element is in the tree but has gone past the page's view all the same, the next gentle drag goes back
+    /// toward it.
     @discardableResult
     func scrollLobbyPage(until element: XCUIElement, up: Bool = false, gently: Bool = false, tries: Int = 25) -> XCUIElement {
         let page = id("lobby_page")
@@ -145,7 +147,13 @@ extension XCUIApplication {
             let origin = coordinate(withNormalizedOffset: .zero)
             let low = origin.withOffset(CGVector(dx: frame.minX + 8, dy: frame.minY + frame.height * 0.8))
             let high = origin.withOffset(CGVector(dx: frame.minX + 8, dy: frame.minY + frame.height * 0.2))
-            let (from, to) = up ? (high, low) : (low, high)
+            var upward = up
+            if gently && element.exists {
+                let at = element.frame
+                if !up && at.maxY <= frame.minY { upward = true }
+                if up && at.minY >= frame.maxY { upward = false }
+            }
+            let (from, to) = upward ? (high, low) : (low, high)
             if gently {
                 from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.2)
             } else {

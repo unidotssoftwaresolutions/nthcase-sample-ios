@@ -212,9 +212,18 @@ final class IdWalkTests: XCTestCase {
                 app.id("lobby_bar_home").tapWhenThere()
                 app.scrollLobbyPage(until: app.id("lobby_grid_cell_1"), gently: true)
             },
-            Step(name: "Lobby (\(bench)), lower down", ids: ["lobby_inner_list", "lobby_inner_row_1",
-                                                             "lobby_board_position", "lobby_board", "lobby_board_cell_a1"]) { app in
-                app.scrollLobbyPage(until: app.id("lobby_board_cell_a1"))
+            // The inner list and the board each have a step of their own too, both reached gently. With the pager on,
+            // SwiftUI's page shows 176 points, and the inner list's first row is more than that above the board's
+            // first cell, so one look cannot have both on screen. In CI run 44346625956 one step scrolled on from the
+            // grid with flung drags: after the third the board's first cell was in the tree but above the page's
+            // window, so it was never hittable, and the 22 drags left took the page to its end. The inner list had
+            // scrolled out above and left the tree. Run 44323850081 had found both only because its drags happened
+            // to stop with the board's first cell low in the window.
+            Step(name: "Lobby (\(bench)), the inner list", ids: ["lobby_inner_list", "lobby_inner_row_1"]) { app in
+                app.scrollLobbyPage(until: app.id("lobby_inner_row_1"), gently: true)
+            },
+            Step(name: "Lobby (\(bench)), the board", ids: ["lobby_board_position", "lobby_board", "lobby_board_cell_a1"]) { app in
+                app.scrollLobbyPage(until: app.id("lobby_board_cell_a1"), gently: true)
             },
             Step(name: "Lobby (\(bench)), the end", ids: ["lobby_footer"]) { app in
                 app.scrollLobbyPage(until: app.id("lobby_footer"))
