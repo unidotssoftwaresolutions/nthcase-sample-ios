@@ -373,6 +373,11 @@ extension XCUIElement {
     var isOn: Bool { (value as? String) == "1" || (value as? Int) == 1 || (value as? Bool) == true }
 
     /// Waits until the element's label or value contains `text`.
+    ///
+    /// Not for a text that should already be there on a slow runner: the wait can end before its first look answers,
+    /// and then it says nothing about what was shown. In release run 44415519436 a 2 s `waitFor("Nothing touched")`
+    /// on the Lobby's touch log made one look, which had not answered when the 2 s ran out, and failed while the
+    /// screen showed "Nothing touched" and "Touches: 0". Use `mustShow` or `looksUntil` with `looksTimeout` there.
     @discardableResult
     func waitFor(_ text: String, timeout: TimeInterval = 5) -> Bool {
         let predicate = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)
@@ -394,10 +399,21 @@ extension XCUIElement {
         return looks
     }
 
+    /// Fails unless the element comes to show exactly `text` within `timeout`, and the failure lists every look:
+    /// "<what>: never showed "<text>" in 10 s; it showed "…" at 0.0 s, …".
+    func mustShow(_ text: String, timeout: TimeInterval, _ what: String, file: StaticString = #filePath, line: UInt = #line) {
+        let looks = looksUntil(shows: text, timeout: timeout)
+        if looks.last?.shown != text {
+            XCTFail("\(what): never showed \"\(text)\" in \(Int(timeout)) s; it showed " + looks.map(\.line).joined(separator: ", "),
+                    file: file, line: line)
+        }
+    }
+
     struct Look {
         let shown: String
         let after: TimeInterval
-        var line: String { "\"\(shown)\" at \(String(format: "%.1f", after)) s" }
+        /// One line however many lines the element shows (the touch log shows up to three).
+        var line: String { "\"\(shown.replacingOccurrences(of: "\n", with: " | "))\" at \(String(format: "%.1f", after)) s" }
     }
 
     func waitToVanish(timeout: TimeInterval = 5) -> Bool {
@@ -441,6 +457,15 @@ extension XCUIApplication {
 }
 
 /// The system's notification prompt, which Springboard draws. Allows it if it is there.
+/// How long `looksUntil` / `mustShow` look for a text that should already be on screen, or come within a second: the
+/// touch log after a tap or after a step that must touch nothing, and Settings' notification status.
+///
+/// 10 s because of what one look has cost on GitHub's macOS arm64 runners: up to 6.2 s in release run 44415519436
+/// (one existence check in `testSavedComesLateUIKit`, 49.95 to 56.16 s) and 3.8 s in run 44388145174. At 6 s a look,
+/// 10 s still holds two looks. It costs nothing when the check passes: the loop stops at the first look that shows the
+/// text, as the budget check's 10 s does (FlowTests).
+let looksTimeout: TimeInterval = 10
+
 func allowNotificationsIfAsked() {
     let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     let allow = springboard.alerts.buttons["Allow"]

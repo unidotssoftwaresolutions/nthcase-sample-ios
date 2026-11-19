@@ -257,7 +257,14 @@ final class FlowTests: XCTestCase {
         app.openTab("nav_settings")
         expect("tester@mossgrove.test")
         let status = app.id("settings_notifications_status")
-        let askedBefore = !status.waitFor("Not allowed. Turn this on to be asked.", timeout: 3)
+        // Whether iOS will ask: the status says "Not allowed" while iOS does not allow notifications, which on CI's new
+        // simulator means it has not asked yet. Looked at, not waited for: a 3 s `waitFor` that ended before its first look
+        // answered would take an unasked simulator for an asked one and leave iOS's prompt unanswered (see `waitFor`).
+        let notAllowed = "Not allowed. Turn this on to be asked."
+        let looks = status.looksUntil(shows: notAllowed, timeout: looksTimeout)
+        let askedBefore = looks.last?.shown != notAllowed
+        XCTContext.runActivity(named: "Notification status before the switch: " + looks.map(\.line).joined(separator: ", ")
+                               + (askedBefore ? "; iOS has been asked before" : "; iOS will ask")) { _ in }
         app.id("settings_theme_dark").tapWhenThere()
         XCTAssertTrue(app.id("settings_theme_dark").isSelected, "Dark is not selected")
         app.id("settings_theme_system").tapWhenThere()

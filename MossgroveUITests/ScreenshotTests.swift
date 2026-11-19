@@ -232,7 +232,7 @@ final class ScreenshotTests: XCTestCase {
     private func boardCellTapped() {
         app.scrollLobbyPage(until: app.id("lobby_board_cell_b2"), gently: true)
         app.id("lobby_board_cell_b2").tapWhenThere()
-        XCTAssertTrue(app.id("lobby_touch_log").waitFor("Tapped: B2 (board)", timeout: 3))
+        app.id("lobby_touch_log").mustShow("Tapped: B2 (board)", timeout: looksTimeout, "the tap on B2; lobby_touch_log")
     }
 
     private func pagerOff() {

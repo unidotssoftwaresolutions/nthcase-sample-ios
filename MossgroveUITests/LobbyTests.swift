@@ -95,7 +95,7 @@ final class LobbyTests: XCTestCase {
         app.id("lobby_pager_shown").set(true)
         XCTAssertTrue(app.id("lobby_pager").waitForExistence(timeout: 5), "\(bench): the pager did not come back")
         XCTAssertEqual(scrollers(app).first?.identifier, "lobby_pager", "\(bench): the pager is not first again")
-        XCTAssertTrue(app.id("lobby_touch_log").waitFor("Nothing touched", timeout: 2), "\(bench): turning the pager touched something")
+        app.id("lobby_touch_log").mustShow("Nothing touched", timeout: looksTimeout, "\(bench): turning the pager touched something; lobby_touch_log")
         keepTree(app, "\(bench): the tree")
     }
 
@@ -119,7 +119,8 @@ final class LobbyTests: XCTestCase {
         XCTAssertGreaterThan(after, 11.5, "\(bench): Saved came \(after) s after the choice")
         report(bench, String(format: "Saved in the tree %.1f s after choosing 12 s", after))
         XCTAssertEqual(app.id("lobby_bar").buttons.count, 4)
-        XCTAssertTrue(app.id("lobby_touch_log").waitFor("Nothing touched", timeout: 2), "\(bench): the delay choice touched something")
+        // In release run 44415519436 this was a 2 s `waitFor`, which failed on its first look (see `waitFor`)
+        app.id("lobby_touch_log").mustShow("Nothing touched", timeout: looksTimeout, "\(bench): the delay choice touched something; lobby_touch_log")
     }
 
     /// WebDriverAgent's scroll gestures on `scroller`, 0.25 s apart (GuruAI's PollIntervalMs between two of its probes),
