@@ -35,8 +35,9 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
-    private func wait(_ id: String, _ timeout: TimeInterval = 8) {
-        XCTAssertTrue(app.id(id).waitForExistence(timeout: timeout), "\(id) did not appear")
+    /// The element is in the tree; a failure lists every look and the screen after them.
+    private func wait(_ id: String, _ timeout: TimeInterval = looksTimeout, file: StaticString = #filePath, line: UInt = #line) {
+        app.id(id).mustAppear(timeout: timeout, id, file: file, line: line)
     }
 
     func test01SignIn() {
@@ -133,17 +134,20 @@ final class ScreenshotTests: XCTestCase {
     func test05WebView() {
         app.signIn()
         app.openLab("lab_webview")
-        XCTAssertTrue(app.id("webview_status").waitFor("Care guide loaded", timeout: 10), "the care guide did not say it loaded")
+        // In build run 44486580432 this was XCTest's 10 s wait: it made one look, which saw "Loading the care guide…",
+        // and never looked again; the page loaded 5.4 to 5.7 s after the tap (see `careGuideTimeout`)
+        app.id("webview_status").mustContain("Care guide loaded", timeout: careGuideTimeout, "the care guide's webview_status")
         shot("15-webview", settle: 1.0)
     }
 
     func test05Slots() {
         app.signIn()
         app.openLab("lab_slow")
-        wait("slow_loading", 3)
+        // 3 s, the spinner's whole life (`slowLoad`): a later look could not find it. A look begun within the 3 s is read.
+        wait("slow_loading", slowLoad)
         shot("16-slow-loading", settle: 0.2)
 
-        wait("slow_content")
+        wait("slow_content", slowLoad + looksTimeout)
         shot("17-slow-done")
     }
 
@@ -154,7 +158,7 @@ final class ScreenshotTests: XCTestCase {
         shot("22-settings")
 
         app.scrollTo(app.id("settings_reset")).tapWhenThere()
-        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
+        app.alerts.firstMatch.mustAppear("the Reset settings alert")
         shot("23-settings-dialog")
 
         let confirm = app.id("settings_reset_confirm")
@@ -172,10 +176,10 @@ final class ScreenshotTests: XCTestCase {
     func test07GiftCards() {
         app.signIn()
         app.openLab("lab_gift_cards")
-        XCTAssertTrue(app.text("Check a balance").waitForExistence(timeout: 5))
+        app.text("Check a balance").mustAppear("\"Check a balance\"")
         app.buttons.matching(NSPredicate(format: "label == 'Choose'")).allElementsBoundByIndex
             .min { $0.frame.minX < $1.frame.minX }?.tap()
-        XCTAssertTrue(app.text("with the Fern design").waitForExistence(timeout: 5))
+        app.text("with the Fern design").mustAppear("\"with the Fern design\" after Choose")
         shot("21-gift-cards")
     }
 
@@ -199,7 +203,7 @@ final class ScreenshotTests: XCTestCase {
         wait("lobby_sheet_rate")
         shot("27-lobby-sheet", settle: 1.0)
         app.id("lobby_sheet_rate").tapWhenThere()
-        XCTAssertTrue(app.id("lobby_sheet").waitToVanish(timeout: 5))
+        app.id("lobby_sheet").mustVanish("the quick sheet after Rate")
         pagerOff()
         shot("30-lobby-no-pager")
         leaveLobby()
@@ -237,7 +241,7 @@ final class ScreenshotTests: XCTestCase {
 
     private func pagerOff() {
         app.id("lobby_pager_shown").set(false)
-        XCTAssertTrue(app.id("lobby_pager").waitToVanish(timeout: 5))
+        app.id("lobby_pager").mustVanish("the pager with Show the pager off")
     }
 
     /// Show the pager is kept until the app closes: it is put back on for the next Lobby.

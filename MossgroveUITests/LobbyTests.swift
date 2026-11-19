@@ -68,8 +68,8 @@ final class LobbyTests: XCTestCase {
         app.launch()
         app.signIn()
         app.openLab(bench)
-        XCTAssertTrue(app.id("lobby_touch_log").waitForExistence(timeout: 8), "\(bench): the Lobby did not open")
-        XCTAssertTrue(app.id("lobby_page").waitForExistence(timeout: 8), "\(bench): no page")
+        app.id("lobby_touch_log").mustAppear("\(bench): the Lobby did not open; lobby_touch_log")
+        app.id("lobby_page").mustAppear("\(bench): no page; lobby_page")
         return app
     }
 
@@ -83,7 +83,7 @@ final class LobbyTests: XCTestCase {
 
         app.id("lobby_pager_shown").set(false)
         let gone = ["lobby_pager", "lobby_pager_position", "lobby_pager_auto"] + (1...5).map { "lobby_banner_\($0)" }
-        XCTAssertTrue(app.id("lobby_pager").waitToVanish(timeout: 5), "\(bench): the pager is still there with Show the pager off")
+        app.id("lobby_pager").mustVanish("\(bench): the pager with Show the pager off")
         let ids = Set(app.identifiers())
         XCTAssertEqual(gone.filter(ids.contains), [], "\(bench): in the tree with the pager off")
         let off = scrollers(app)
@@ -93,7 +93,7 @@ final class LobbyTests: XCTestCase {
         expectOrder(bench, off, ["lobby_top_row", "lobby_page"], "pager off")
 
         app.id("lobby_pager_shown").set(true)
-        XCTAssertTrue(app.id("lobby_pager").waitForExistence(timeout: 5), "\(bench): the pager did not come back")
+        app.id("lobby_pager").mustAppear("\(bench): the pager did not come back")
         XCTAssertEqual(scrollers(app).first?.identifier, "lobby_pager", "\(bench): the pager is not first again")
         app.id("lobby_touch_log").mustShow("Nothing touched", timeout: looksTimeout, "\(bench): turning the pager touched something; lobby_touch_log")
         keepTree(app, "\(bench): the tree")
@@ -101,7 +101,9 @@ final class LobbyTests: XCTestCase {
 
     private func savedComesLate(_ bench: String) {
         let app = openLobby(bench)
-        XCTAssertTrue(app.id("lobby_bar_saved").waitForExistence(timeout: 3), "\(bench): Saved is not there at 0 s")
+        // 3 s, not `looksTimeout`: at 0 s Saved is there from the start, and a longer wait would pass a Saved that came
+        // late. A look begun within the 3 s is read, however long it takes.
+        app.id("lobby_bar_saved").mustAppear(timeout: 3, "\(bench): Saved is not there at 0 s")
         app.id("lobby_saved_delay_12").tapWhenThere()
         let chosen = Date()
         Thread.sleep(forTimeInterval: 1)
@@ -114,7 +116,9 @@ final class LobbyTests: XCTestCase {
         XCTAssertEqual(app.id("lobby_bar").buttons.count, 3, "\(bench): the bar does not have three buttons")
         report(bench, "12 s chosen: \(named.count) element named lobby_bar_saved, \(label.count) labelled Saved, "
                + "\(app.id("lobby_bar").buttons.count) bar buttons; the reach's mobile: scroll {name} finds nothing and makes no gesture")
-        XCTAssertTrue(app.id("lobby_bar_saved").waitForExistence(timeout: 15), "\(bench): Saved never came")
+        // 12 s for the delay and `looksTimeout` for the looks: in release run 44415519436 Saved was in the tree 14.3 s
+        // after the choice, read by an existence check that took 6.2 s, inside a 15 s wait
+        app.id("lobby_bar_saved").mustAppear(timeout: 12 + looksTimeout, "\(bench): Saved never came")
         let after = Date().timeIntervalSince(chosen)
         XCTAssertGreaterThan(after, 11.5, "\(bench): Saved came \(after) s after the choice")
         report(bench, String(format: "Saved in the tree %.1f s after choosing 12 s", after))
@@ -129,12 +133,13 @@ final class LobbyTests: XCTestCase {
         let app = openLobby(bench)
         if pagerOff {
             app.id("lobby_pager_shown").set(false)
-            XCTAssertTrue(app.id("lobby_pager").waitToVanish(timeout: 5))
+            app.id("lobby_pager").mustVanish("\(bench): the pager with Show the pager off")
             XCTAssertEqual(scrollers(app).first?.identifier, "lobby_top_row", "\(bench): the Top 10 row is not first")
         }
         let target = app.id(scroller)
-        guard target.waitForExistence(timeout: 5) else {
-            XCTFail("\(bench): \(scroller) is not in the tree, so the gesture could not be made")
+        let there = target.appears(timeout: looksTimeout)
+        guard there.met else {
+            XCTFail("\(bench): \(scroller) is not in the tree, so the gesture could not be made; " + there.said)
             keepTree(app, "\(bench): no \(scroller)")
             return
         }

@@ -18,14 +18,16 @@ final class FlowTests: XCTestCase {
         app.launch()
     }
 
-    private func expect(_ text: String, timeout: TimeInterval = 5, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertTrue(app.text(text).waitForExistence(timeout: timeout), "the screen does not show \"\(text)\"", file: file, line: line)
+    /// Something on screen shows `text`. A failure lists every look and the screen after them (`mustAppear`).
+    private func expect(_ text: String, timeout: TimeInterval = looksTimeout, file: StaticString = #filePath, line: UInt = #line) {
+        app.text(text).mustAppear(timeout: timeout, "the screen does not show \"\(text)\"", file: file, line: line)
     }
 
-    private func expect(_ id: String, shows text: String, timeout: TimeInterval = 5, file: StaticString = #filePath, line: UInt = #line) {
-        let element = app.id(id)
-        XCTAssertTrue(element.waitForExistence(timeout: timeout), "\(id) is not on screen", file: file, line: line)
-        XCTAssertTrue(element.waitFor(text, timeout: timeout), "\(id) shows \"\(element.shown)\", not \"\(text)\"", file: file, line: line)
+    /// `id` comes to show `text` (its label or value contains it). One wait, whose looks say "nothing in the tree"
+    /// until the element comes: until 1.1 this was two waits of `timeout` each, the second one XCTest's, and its
+    /// message read the label again after the wait.
+    private func expect(_ id: String, shows text: String, timeout: TimeInterval = looksTimeout, file: StaticString = #filePath, line: UInt = #line) {
+        app.id(id).mustContain(text, timeout: timeout, id, file: file, line: line)
     }
 
     // 01 · Sign in with the test account
@@ -57,12 +59,12 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["Clear search"].exists)
         app.id("shop_empty_action").tapWhenThere()
         let last = app.scrollTo(app.id("shop_item_40"))
-        XCTAssertTrue(last.waitFor("Fruit Bowl"))
-        XCTAssertTrue(last.waitFor("No. 040"))
+        last.mustContain("Fruit Bowl", "shop_item_40")
+        last.mustContain("No. 040", "shop_item_40")
         app.scrollTo(app.id("shop_item_1"), up: true)
         app.scrollTo(app.id("shop_search"), up: true)
         pullToRefresh(app)
-        expect("snackbar_text", shows: "Catalogue is up to date", timeout: 8)
+        expect("snackbar_text", shows: "Catalogue is up to date", timeout: 15)
         app.id("shop_search").type("7\n")
         expect("shop_count", shows: "1 of 40 drawers")
         expect("shop_item_7", shows: "Wall Clock")
@@ -88,14 +90,14 @@ final class FlowTests: XCTestCase {
         app.openTab("nav_cart")
         expect("cart_total", shows: "$70.00")
         app.id("cart_line_remove_1").tapWhenThere()
-        XCTAssertTrue(app.id("cart_line_1").waitToVanish())
+        app.id("cart_line_1").mustVanish("line 1 after its Remove")
         expect("cart_total", shows: "$42.00")
         let orderTotal = app.id("cart_total").label
         checkOutIsFree()
         app.id("cart_checkout").tapWhenThere()
         expect("dialog_title", shows: "Place this order?")
         app.id("dialog_dismiss").tapWhenThere()
-        XCTAssertTrue(app.id("dialog").waitToVanish())
+        app.id("dialog").mustVanish("the dialog after Not now")
         expect("Brass Desk Lamp")
         app.id("cart_checkout").tapWhenThere()
         app.id("dialog_confirm").tapWhenThere()
@@ -118,7 +120,7 @@ final class FlowTests: XCTestCase {
         app.id("form_email").type("sam@example")
         expect("Enter a valid email address")
         app.id("form_email").type(".test")
-        XCTAssertTrue(app.id("form_email_error").waitToVanish())
+        app.id("form_email_error").mustVanish("the email error after a valid address")
         app.id("form_age").type("34")
         app.id("form_password").type("garden42x")
         app.id("form_password_toggle").tapWhenThere()
@@ -127,10 +129,10 @@ final class FlowTests: XCTestCase {
         app.id("form_category_option_garden").tapWhenThere()
         // Moving on from the password to the aisle puts the keyboard away: in the fourth CI run it stayed up, over the
         // newsletter switch, and both taps on the switch landed on it.
-        XCTAssertTrue(app.keyboards.firstMatch.waitToVanish(timeout: 3), "the keyboard stayed up after choosing an aisle")
+        app.keyboards.firstMatch.mustVanish("the keyboard after choosing an aisle")
         app.scrollTo(app.id("form_date")).tapWhenThere()
         let picker = app.id("form_date_picker")
-        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.mustAppear("form_date_picker")
         let fifteen = picker.buttons.matching(NSPredicate(format: "label ENDSWITH ' 15' OR label == '15'")).firstMatch
         (fifteen.exists ? fifteen : picker.staticTexts["15"]).tap()
         app.id("form_date_confirm").tapWhenThere()
@@ -154,30 +156,30 @@ final class FlowTests: XCTestCase {
         let status = app.id("gestures_status")
         expect("gestures_status", shows: "Ready")
         app.id("gestures_tap").tapWhenThere()
-        XCTAssertTrue(status.waitFor("Tapped"))
+        status.mustContain("Tapped", "gestures_status")
         expect("gestures_tap_count", shows: "Taps: 1")
         app.id("gestures_double_tap").doubleTap()
-        XCTAssertTrue(status.waitFor("Double-tapped"))
+        status.mustContain("Double-tapped", "gestures_status")
         app.id("gestures_long_press").press(forDuration: 1.0)
-        XCTAssertTrue(status.waitFor("Long-pressed"))
+        status.mustContain("Long-pressed", "gestures_status")
         let swipe = app.id("gestures_swipe")
         swipe.swipeLeft()
-        XCTAssertTrue(status.waitFor("Swiped left"))
+        status.mustContain("Swiped left", "gestures_status")
         swipe.swipeRight()
-        XCTAssertTrue(status.waitFor("Swiped right"))
+        status.mustContain("Swiped right", "gestures_status")
         swipe.swipeUp()
-        XCTAssertTrue(status.waitFor("Swiped up"))
+        status.mustContain("Swiped up", "gestures_status")
         swipe.swipeDown()
-        XCTAssertTrue(status.waitFor("Swiped down"))
+        status.mustContain("Swiped down", "gestures_status")
         app.id("gestures_drag_source").press(forDuration: 0.5, thenDragTo: app.id("gestures_drop_target"))
-        XCTAssertTrue(status.waitFor("Dropped on the drawer"))
+        status.mustContain("Dropped on the drawer", "gestures_status")
         app.scrollTo(app.id("gestures_pinch")).pinch(withScale: 2.0, velocity: 1.0)
-        XCTAssertTrue(status.waitFor("Pinched out"))
+        status.mustContain("Pinched out", "gestures_status")
         // not in the scenario (NthCase has no two-finger rotation yet), but the pad works
         app.id("gestures_rotate").rotate(.pi / 2, withVelocity: 1.0)
-        XCTAssertTrue(status.waitFor("Rotated"))
+        status.mustContain("Rotated", "gestures_status")
         app.scrollTo(app.id("gestures_scroll_target")).tapWhenThere()
-        XCTAssertTrue(status.waitFor("Found the bottom drawer"))
+        status.mustContain("Found the bottom drawer", "gestures_status")
     }
 
     // 06 · The device: rotate, home, back. Lock and unlock have no XCUITest call; shake has none either (ShakeTests).
@@ -208,26 +210,27 @@ final class FlowTests: XCTestCase {
     func test07WebView() {
         app.signIn()
         app.openLab("lab_webview")
-        expect("webview_status", shows: "Care guide loaded", timeout: 10)
+        expect("webview_status", shows: "Care guide loaded", timeout: careGuideTimeout)
         let page = app.webViews.firstMatch
         let name = page.textFields.firstMatch
-        XCTAssertTrue(name.waitForExistence(timeout: 5), "the page's Your name field")
+        name.mustAppear("the page's Your name field")
         name.type("Sam")
         choose("Every week", in: page)
         let agree = page.descendants(matching: .any).matching(NSPredicate(format: "label == 'Email me the guide' AND elementType != %d", XCUIElement.ElementType.staticText.rawValue)).firstMatch
-        XCTAssertTrue(agree.waitForExistence(timeout: 3), "the page's Email me the guide checkbox")
+        agree.mustAppear("the page's Email me the guide checkbox")
         agree.tap()
         page.buttons["Save"].tap()
-        XCTAssertTrue(page.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Saved, Sam. We will remind you every week.'")).firstMatch.waitForExistence(timeout: 5))
+        page.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Saved, Sam. We will remind you every week.'")).firstMatch
+            .mustAppear("the page's \"Saved, Sam. We will remind you every week.\"")
         page.links["Jump to washing"].tap()
-        XCTAssertTrue(page.staticTexts["Washing"].waitForExistence(timeout: 5))
+        page.staticTexts["Washing"].mustAppear("the page's Washing")
     }
 
     // 08 · A slow screen, an error with retry, and empty states
     func test08SlowAndStates() {
         app.signIn()
         app.openLab("lab_slow")
-        XCTAssertTrue(app.id("slow_slot_1").waitForExistence(timeout: 8))
+        app.id("slow_slot_1").mustAppear(timeout: slowLoad + looksTimeout, "slow_slot_1")
         expect("Monday · 8:00–10:00")
         expect("Saturday · 10:00–12:00")
         app.back()
@@ -245,7 +248,7 @@ final class FlowTests: XCTestCase {
         app.scrollTo(app.id("settings_fail_loading")).set(false)
         app.id("settings_slow_loading").set(true)
         app.openTab("nav_shop")
-        XCTAssertTrue(app.id("shop_item_1").waitForExistence(timeout: 8))
+        app.id("shop_item_1").mustAppear(timeout: slowLoad + looksTimeout, "shop_item_1 with Slow loading on")
         expect("Stoneware Mug")
         app.openTab("nav_cart")
         expect("Your cart is empty")
@@ -262,22 +265,24 @@ final class FlowTests: XCTestCase {
         // answered would take an unasked simulator for an asked one and leave iOS's prompt unanswered (see `waitFor`).
         let notAllowed = "Not allowed. Turn this on to be asked."
         let looks = status.looksUntil(shows: notAllowed, timeout: looksTimeout)
-        let askedBefore = looks.last?.shown != notAllowed
-        XCTContext.runActivity(named: "Notification status before the switch: " + looks.map(\.line).joined(separator: ", ")
+        let askedBefore = !looks.met
+        XCTContext.runActivity(named: "Notification status before the switch: " + looks.said
                                + (askedBefore ? "; iOS has been asked before" : "; iOS will ask")) { _ in }
         app.id("settings_theme_dark").tapWhenThere()
         XCTAssertTrue(app.id("settings_theme_dark").isSelected, "Dark is not selected")
         app.id("settings_theme_system").tapWhenThere()
         app.id("settings_notifications").tapWhenThere()
         if !askedBefore { allowNotificationsIfAsked() }
-        XCTAssertTrue(status.waitFor("On: we'll tell you when an order is placed.", timeout: 8),
-                      "status: \(status.label) (a refusal from an earlier run on this simulator stops the prompt)")
+        // 15 s: the status changes when iOS answers the app's request, after the Allow tap; how long that takes on CI
+        // has not been measured, so 5 s for it and `looksTimeout` for the looks
+        status.mustContain("On: we'll tell you when an order is placed.", timeout: 15,
+                           "settings_notifications_status (a refusal from an earlier run on this simulator stops the prompt)")
         app.id("settings_send_notification").tapWhenThere()
         expect("snackbar_text", shows: "Notification sent")
         app.scrollTo(app.id("settings_reset")).tapWhenThere()
         expect("Empty the cart and orders?")
         let cancel = app.id("settings_reset_cancel")
-        (cancel.waitForExistence(timeout: 3) ? cancel : app.alerts.buttons["Cancel"]).tap()
+        (cancel.appears(timeout: 3).met ? cancel : app.alerts.buttons["Cancel"].firstMatch).tapWhenThere()
         app.scrollTo(app.id("settings_sign_out"), up: true).tapWhenThere()
         expect("Test account")
     }
@@ -313,11 +318,11 @@ final class FlowTests: XCTestCase {
         let control = page.descendants(matching: .any).matching(NSPredicate(
             format: "elementType != %d AND (value == 'Every month' OR label == 'Remind me' OR label == 'Every month')", staticText)).firstMatch
         keepTree(page, "the page before the list opens")
-        XCTAssertTrue(control.waitForExistence(timeout: 5), "the page's Remind me list", file: file, line: line)
+        control.mustAppear("the page's Remind me list", file: file, line: line)
         control.tap()
         // the menu iOS opens: its rows are menu items, buttons or cells (a wheel, on an older iOS, has a Done button)
         let candidates = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", option))
-        _ = candidates.firstMatch.waitForExistence(timeout: 3)
+        _ = candidates.firstMatch.appears(timeout: looksTimeout)
         keepTree(app, "the app after the list opened")
         let rows: [XCUIElement.ElementType] = [.menuItem, .button, .cell]
         let item = candidates.allElementsBoundByIndex.first { rows.contains($0.elementType) } ?? candidates.firstMatch
@@ -338,9 +343,9 @@ final class FlowTests: XCTestCase {
     // 11 · Deep link to an item, as the scenario plays it: opened from outside on a cold start, so signed out
     func test11DeepLink() {
         app.openLinkFromColdStart("nthcase-sample://item/7")
-        XCTAssertTrue(app.id("signin_screen").waitForExistence(timeout: 15), "a cold start shows sign-in first")
+        app.id("signin_screen").mustAppear(timeout: 15, "a cold start shows sign-in first: signin_screen")
         app.signIn(expectShop: false)
-        expect("item_name", shows: "Wall Clock", timeout: 8)
+        expect("item_name", shows: "Wall Clock")
         expect("item_number", shows: "No. 007")
         app.back()
         expect("shop_item_1", shows: "Stoneware Mug")
@@ -350,26 +355,27 @@ final class FlowTests: XCTestCase {
     func test11DeepLinkWhileRunning() {
         app.signIn()
         app.openTab("nav_settings")
-        XCTAssertTrue(app.id("settings_screen").waitForExistence(timeout: 5))
+        app.id("settings_screen").mustAppear("settings_screen")
         app.openLinkWhileRunning("nthcase-sample://item/7")
         // a relaunch would show sign-in: this line names it
-        XCTAssertFalse(app.id("signin_screen").waitForExistence(timeout: 2), "the link restarted the app: sign-in is on screen")
-        expect("item_name", shows: "Wall Clock", timeout: 8)
+        let signIn = app.id("signin_screen").appears(timeout: 2)
+        XCTAssertFalse(signIn.met, "the link restarted the app: sign-in is on screen; " + signIn.said)
+        expect("item_name", shows: "Wall Clock")
         expect("item_number", shows: "No. 007")
         app.back()
         expect("shop_item_1", shows: "Stoneware Mug")
         app.openLinkWhileRunning("nthcase-sample://item/999")
         XCTAssertFalse(app.id("signin_screen").exists, "the link restarted the app: sign-in is on screen")
-        expect("No drawer has the number", timeout: 8)
+        expect("No drawer has the number")
     }
 
     // 11 · Signed out and running: sign-in first, then the item
     func test11DeepLinkSignedOutWhileRunning() {
-        XCTAssertTrue(app.id("signin_screen").waitForExistence(timeout: 15))
+        app.id("signin_screen").mustAppear(timeout: 15, "signin_screen")
         app.openLinkWhileRunning("nthcase-sample://item/7")
-        XCTAssertTrue(app.id("signin_screen").waitForExistence(timeout: 5), "signed out, the link shows sign-in first")
+        app.id("signin_screen").mustAppear("signed out, the link shows sign-in first: signin_screen")
         app.signIn(expectShop: false)
-        expect("item_name", shows: "Wall Clock", timeout: 8)
+        expect("item_name", shows: "Wall Clock")
         app.back()
         expect("shop_item_1", shows: "Stoneware Mug")
     }
@@ -379,20 +385,20 @@ final class FlowTests: XCTestCase {
     func testATabOpensAtItsFirstScreen() {
         app.signIn()
         app.id("shop_item_1").tapWhenThere()
-        XCTAssertTrue(app.id("item_screen").waitForExistence(timeout: 5))
+        app.id("item_screen").mustAppear("item_screen")
         XCTAssertFalse(app.id("nav_shop").exists, "the tab bar is on the item page")
         app.id("item_add_to_cart").tapWhenThere()
         app.id("snackbar_action").tapWhenThere()
-        XCTAssertTrue(app.id("cart_screen").waitForExistence(timeout: 5))
+        app.id("cart_screen").mustAppear("cart_screen after View cart")
         app.openTab("nav_shop")
-        XCTAssertTrue(app.id("shop_screen").waitForExistence(timeout: 5))
+        app.id("shop_screen").mustAppear("shop_screen")
         XCTAssertFalse(app.id("item_screen").exists, "Shop came back on the item")
         app.openLab("lab_orders")
-        XCTAssertTrue(app.id("orders_empty_action").waitForExistence(timeout: 5))
+        app.id("orders_empty_action").mustAppear("orders_empty_action")
         app.id("orders_empty_action").tapWhenThere()
-        XCTAssertTrue(app.id("shop_screen").waitForExistence(timeout: 5))
+        app.id("shop_screen").mustAppear("shop_screen after Start shopping")
         app.openTab("nav_lab")
-        XCTAssertTrue(app.id("lab_screen").waitForExistence(timeout: 5))
+        app.id("lab_screen").mustAppear("lab_screen")
         XCTAssertFalse(app.id("orders_screen").exists, "Lab came back on Orders")
         app.openTab("nav_lab")
         XCTAssertTrue(app.id("lab_screen").exists, "choosing Lab again left its first screen")
@@ -402,7 +408,7 @@ final class FlowTests: XCTestCase {
     /// 03 tapped Check out with the Add-to-cart banner still up, and no dialog came.
     private func checkOutIsFree(file: StaticString = #filePath, line: UInt = #line) {
         let checkout = app.id("cart_checkout")
-        XCTAssertTrue(checkout.waitForExistence(timeout: 5), "cart_checkout is not on screen", file: file, line: line)
+        checkout.mustAppear("cart_checkout", file: file, line: line)
         let banner = app.id("snackbar")
         let bannerUp = banner.exists
         XCTContext.runActivity(named: "Check out at \(checkout.frame); the banner \(bannerUp ? "is up at \(banner.frame)" : "is not up")") { _ in }
@@ -434,17 +440,18 @@ final class FlowTests: XCTestCase {
         var bannerOnTheCart = false
         for attempt in 1...3 where !bannerOnTheCart {
             if attempt > 1 { app.openTab("nav_shop") }
-            XCTAssertTrue(app.id("shop_list").waitForExistence(timeout: 5), "the shop's list is not on screen")
+            app.id("shop_list").mustAppear("the shop's list")
             app.answerSavePasswordCard()
             pullToRefresh(app)
-            guard app.id("snackbar_text").waitFor("Catalogue is up to date", timeout: 8) else {
-                tries.append("try \(attempt): no banner 8 s after the refresh")
+            let banner = app.id("snackbar_text").waitFor("Catalogue is up to date", timeout: 8)
+            guard banner.met else {
+                tries.append("try \(attempt): no banner after the refresh: snackbar_text never showed \"Catalogue is up to date\" " + banner.said)
                 continue
             }
             let seen = Date()
             // the bare tap: no look for the card, no wait for hittable, so nothing but the tab change runs the clock
             app.tab("nav_cart").tap()
-            let onTheCart = app.id("cart_screen").waitForExistence(timeout: 5)
+            let onTheCart = app.id("cart_screen").appears(timeout: 5).met
             let up = app.id("snackbar").exists
             let after = Date().timeIntervalSince(seen)
             tries.append("try \(attempt): " + (onTheCart ? "the Cart" : "no cart_screen")
@@ -477,8 +484,8 @@ final class FlowTests: XCTestCase {
         for (fraction, shown) in [(0.6, "$120"), (0.3, "$60"), (1.0, "$200"), (0.0, "$0"), (0.45, "$90"), (0.6, "$120")] {
             slider.adjust(toNormalizedSliderPosition: CGFloat(fraction))
             let looks = app.id("form_budget_value").looksUntil(shows: shown, timeout: 10)
-            if looks.last?.shown != shown {
-                wrong.append("\(fraction) never showed \(shown) in 10 s; it showed " + looks.map(\.line).joined(separator: ", "))
+            if !looks.met {
+                wrong.append("\(fraction) never showed \(shown) " + looks.said)
             }
         }
         XCTAssertEqual(wrong, [], "the budget after each slide")
@@ -488,10 +495,10 @@ final class FlowTests: XCTestCase {
     func testTheEdgeSwipeGoesBack() {
         app.signIn()
         app.openLab("lab_slow")
-        XCTAssertTrue(app.id("slow_screen").waitForExistence(timeout: 5))
+        app.id("slow_screen").mustAppear("slow_screen")
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
         edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
-        XCTAssertTrue(app.id("lab_screen").waitForExistence(timeout: 5))
-        XCTAssertTrue(app.id("slow_screen").waitToVanish())
+        app.id("lab_screen").mustAppear("lab_screen after the edge swipe")
+        app.id("slow_screen").mustVanish("slow_screen after the edge swipe")
     }
 }

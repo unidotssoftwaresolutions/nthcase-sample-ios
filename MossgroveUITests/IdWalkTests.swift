@@ -123,7 +123,7 @@ final class IdWalkTests: XCTestCase {
         },
         Step(name: "Delivery slots", ids: ["slow_content", "slow_slot_1", "slow_slot_2", "slow_slot_3", "slow_slot_4", "slow_slot_5",
                                            "slow_reload"]) { app in
-            _ = app.id("slow_content").waitForExistence(timeout: 8)
+            _ = app.id("slow_content").appears(timeout: slowLoad + looksTimeout)
         },
         Step(name: "Orders, none", ids: ["orders_screen", "orders_empty", "orders_empty_action"]) { app in
             app.back()
@@ -201,7 +201,7 @@ final class IdWalkTests: XCTestCase {
             },
             Step(name: "Lobby (\(bench)), Saved", ids: ["lobby_saved_screen", "lobby_bar"]) { app in
                 app.id("lobby_sheet_rate").tapWhenThere()
-                _ = app.id("lobby_sheet").waitToVanish(timeout: 5)
+                _ = app.id("lobby_sheet").vanishes(timeout: looksTimeout)
                 app.id("lobby_bar_saved").tapWhenThere()
             },
             // The grid has a step of its own. The page shows 176 to 393 points of itself, and a cell that scrolls out of
@@ -246,7 +246,7 @@ final class IdWalkTests: XCTestCase {
         app.launch()
         app.signIn()
         app.openLab("lab_gift_cards")
-        XCTAssertTrue(app.text("Check a balance").waitForExistence(timeout: 5))
+        app.text("Check a balance").mustAppear("\"Check a balance\"")
         let ids = app.identifiers()
         let spec = ids.filter { id in SpecIds.shared.ids.contains { SpecIds.matches(id, $0.id) } }
         XCTAssertEqual(spec, [], "Gift cards shows ids of the list")
@@ -267,7 +267,8 @@ final class IdWalkTests: XCTestCase {
                     ("nav_settings", "Settings", "settings_screen"), ("nav_shop", "Shop", "shop_screen")]
         func check(_ id: String, label: String, selected: Bool) {
             let tab = app.id(id)
-            guard tab.waitForExistence(timeout: 8) else { problems.append("\(id): not in the tree"); return }
+            let there = tab.appears(timeout: looksTimeout)
+            guard there.met else { problems.append("\(id): not in the tree " + there.said); return }
             if tab.elementType != .button { problems.append("\(id): a \(tab.elementType.rawValue), not a button") }
             if !tab.isHittable { problems.append("\(id): not hittable at \(tab.frame)") }
             if tab.label != label { problems.append("\(id): labelled \"\(tab.label)\", not \"\(label)\"") }
@@ -275,9 +276,11 @@ final class IdWalkTests: XCTestCase {
         }
         XCTContext.runActivity(named: "Each tab, tapped") { _ in
             for (id, _, screen) in tabs {
-                guard app.id(id).waitForExistence(timeout: 8) else { problems.append("\(id): not in the tree"); continue }
+                let there = app.id(id).appears(timeout: looksTimeout)
+                guard there.met else { problems.append("\(id): not in the tree " + there.said); continue }
                 app.id(id).tap()
-                if !app.id(screen).waitForExistence(timeout: 5) { problems.append("\(id): a tap did not open \(screen)") }
+                let opened = app.id(screen).appears(timeout: looksTimeout)
+                if !opened.met { problems.append("\(id): a tap did not open \(screen): " + opened.said + "; then on screen: " + app.screens()) }
                 for (other, otherTitle, _) in tabs { check(other, label: otherTitle, selected: other == id) }
             }
         }
@@ -333,7 +336,7 @@ final class IdWalkTests: XCTestCase {
                 // spent them before it was the spinner's turn (second CI run: slow_loading). Only what that read
                 // missed is waited for.
                 let first = Set(app.identifiers())
-                let missing = step.ids.filter { !first.contains($0) && !app.id($0).waitForExistence(timeout: 8) }
+                let missing = step.ids.filter { !first.contains($0) && !app.id($0).appears(timeout: looksTimeout).met }
                 let tree = app.identifiers()
                 // An id-shaped name that is not in the list would be an id outside the spec.
                 let outside = tree.filter { id in
@@ -383,7 +386,7 @@ extension XCUIApplication {
     /// Sign in with the test account; `expectShop: false` when a deep link opens something else.
     func signIn(expectShop: Bool) {
         if expectShop { signIn(); return }
-        XCTAssertTrue(id("signin_email").waitForExistence(timeout: 15))
+        id("signin_email").mustAppear(timeout: 15, "the sign-in screen: signin_email")
         id("signin_use_test_account").tapWhenThere()
         id("signin_submit").tapWhenThere()
     }

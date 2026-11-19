@@ -59,10 +59,10 @@ extension XCUIApplication {
 
     func signIn() {
         let email = id("signin_email")
-        XCTAssertTrue(email.waitForExistence(timeout: 15), "the sign-in screen did not open")
+        email.mustAppear(timeout: 15, "the sign-in screen: signin_email")
         id("signin_use_test_account").tapWhenThere()
         id("signin_submit").tapWhenThere()
-        XCTAssertTrue(id("shop_screen").waitForExistence(timeout: 10), "the shop did not open after sign-in")
+        id("shop_screen").mustAppear(timeout: 10, "the shop after sign-in: shop_screen")
     }
 
     /// A tab button, by its id, or by its title if the id did not reach the tree (the walk reports that, and
@@ -93,9 +93,7 @@ extension XCUIApplication {
     func back(file: StaticString = #filePath, line: UInt = #line) {
         let button = id("top_bar_back")
         guard button.tapWhenThere(file: file, line: line) else { return }
-        if !button.waitToVanish(timeout: 5) {
-            Misses.report("Back did not leave the screen: top_bar_back is still there 5 s later", file: file, line: line)
-        }
+        button.mustVanish(timeout: looksTimeout, "Back did not leave the screen: top_bar_back", file: file, line: line)
         // Leaving a filled password field is when iOS asks to save it (fourth CI run, after Join the club).
         answerSavePasswordCard(within: 1.5, file: file, line: line)
     }
@@ -106,8 +104,9 @@ extension XCUIApplication {
     func openLinkWhileRunning(_ link: String, file: StaticString = #filePath, line: UInt = #line) {
         XCUIDevice.shared.system.open(URL(string: link)!)
         let open = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
-        if open.waitForExistence(timeout: 5) { open.tap() }
-        XCTAssertTrue(wait(for: .runningForeground, timeout: 15), "the app is not in front after \(link)", file: file, line: line)
+        if open.appears(timeout: 5).met { open.tap() }
+        Looks.until(timeout: 15) { ("state \(self.state.rawValue)", self.state == .runningForeground) }
+            .check("the app is not in front after \(link) (4 is in front)", file: file, line: line)
     }
 
     /// A link from a cold start: the app is ended first, then launched with the link, so it starts signed out.
@@ -140,7 +139,7 @@ extension XCUIApplication {
     @discardableResult
     func scrollLobbyPage(until element: XCUIElement, up: Bool = false, gently: Bool = false, tries: Int = 25) -> XCUIElement {
         let page = id("lobby_page")
-        guard page.waitForExistence(timeout: 8) else { return element }
+        guard page.appears(timeout: looksTimeout).met else { return element }
         var left = tries
         while !(element.exists && element.isHittable) && left > 0 {
             let frame = page.frame
@@ -166,10 +165,7 @@ extension XCUIApplication {
 
     /// A long press as NthCase makes one: the element is waited for, then pressed for a second.
     func longPressWhenThere(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
-        guard element.waitForExistence(timeout: 8) else {
-            Misses.report("could not long-press \(element.description): not in the tree after 8 s", file: file, line: line)
-            return
-        }
+        guard element.mustAppear(timeout: 8, "could not long-press \(element.description)", file: file, line: line) else { return }
         element.press(forDuration: 1.0)
     }
 }
@@ -212,12 +208,7 @@ extension XCUIElement {
         let app = XCUIApplication()
         // the card swallows every tap beneath it, even on an element XCUITest calls hittable
         app.answerSavePasswordCard(file: file, line: line)
-        guard waitForExistence(timeout: timeout) else {
-            let screens = app.identifiers().filter { $0.hasSuffix("_screen") }
-            Misses.report("could not tap \(description): not in the tree after \(Int(timeout)) s; on screen: "
-                          + (screens.isEmpty ? "no screen id" : screens.joined(separator: " ")), file: file, line: line)
-            return false
-        }
+        guard mustAppear(timeout: timeout, "could not tap \(description)", file: file, line: line) else { return false }
         // Below the fold, or under a bar, is XCUITest's to scroll into view. Only a cover the tree names stops the tap.
         if !isHittable && !waitForHittable(timeout: 3) {
             let cover = app.whatCovers(self)
@@ -372,52 +363,184 @@ extension XCUIElement {
 
     var isOn: Bool { (value as? String) == "1" || (value as? Int) == 1 || (value as? Bool) == true }
 
-    /// Waits until the element's label or value contains `text`.
-    ///
-    /// Not for a text that should already be there on a slow runner: the wait can end before its first look answers,
-    /// and then it says nothing about what was shown. In release run 44415519436 a 2 s `waitFor("Nothing touched")`
-    /// on the Lobby's touch log made one look, which had not answered when the 2 s ran out, and failed while the
-    /// screen showed "Nothing touched" and "Touches: 0". Use `mustShow` or `looksUntil` with `looksTimeout` there.
-    @discardableResult
-    func waitFor(_ text: String, timeout: TimeInterval = 5) -> Bool {
-        let predicate = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)
-        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: self)], timeout: timeout) == .completed
+    // MARK: Waits that say what they saw
+    //
+    // Every wait in these tests is a series of looks (`Looks.until`): one snapshot of the element each, a quarter
+    // second apart, every look kept with what it saw and when. A failure lists them.
+    //
+    // XCTest's own waits (`XCTNSPredicateExpectation`, which `waitForExistence` uses too) are not used for anything a
+    // test asserts. On GitHub's macOS arm64 runners one evaluation of theirs has taken 6 to 9 s, most of it XCUITest's
+    // "Capturing element debug description", and the waiter gives up when its time runs out, whatever that evaluation
+    // would have found, and says nothing of what was on screen:
+    // - release run 44415519436: a 2 s `waitFor("Nothing touched")` made one look and failed while the screen showed
+    //   "Nothing touched" (the screen recording); one existence check in the same test took 6.2 s;
+    // - build run 44486580432: the care guide's 10 s `waitFor("Care guide loaded")` made one look, begun 2.2 s after the
+    //   tap, which saw "Loading the care guide…" and then spent 8 s on the debug description. The page said "Care guide
+    //   loaded" 5.4 to 5.7 s after the tap (the screen recording), and the wait never looked again.
+
+    /// One look: what the element shows, in one query of the tree. A query that matches more than one element has no
+    /// single snapshot (`app.alerts.buttons["Allow"]`); then a second query says whether anything matches.
+    func glance() -> (now: XCUIElementSnapshot?, there: Bool) {
+        if let now = try? snapshot() { return (now, true) }
+        return (nil, exists)
     }
 
-    /// What the element shows, looked at again and again until it shows exactly `text` or `timeout` has passed: each
-    /// look's label (its value when it has no label) and when it was read, so a failure says what was really seen, and
-    /// when, rather than what a later read found.
-    func looksUntil(shows text: String, timeout: TimeInterval) -> [Look] {
-        let start = Date()
-        var looks: [Look] = []
-        repeat {
-            let seen = exists ? shown : "nothing in the tree"
-            looks.append(Look(shown: seen, after: Date().timeIntervalSince(start)))
-            if seen == text { break }
-            Thread.sleep(forTimeInterval: 0.25)
-        } while Date().timeIntervalSince(start) < timeout
-        return looks
-    }
+    static let several = "more than one element matches"
 
-    /// Fails unless the element comes to show exactly `text` within `timeout`, and the failure lists every look:
-    /// "<what>: never showed "<text>" in 10 s; it showed "…" at 0.0 s, …".
-    func mustShow(_ text: String, timeout: TimeInterval, _ what: String, file: StaticString = #filePath, line: UInt = #line) {
-        let looks = looksUntil(shows: text, timeout: timeout)
-        if looks.last?.shown != text {
-            XCTFail("\(what): never showed \"\(text)\" in \(Int(timeout)) s; it showed " + looks.map(\.line).joined(separator: ", "),
-                    file: file, line: line)
+    /// Waits until the element's label or value contains `text` (as XCTest's `label CONTAINS %@ OR value CONTAINS %@`
+    /// did), looking again and again for `timeout`, and keeps every look. Asserts nothing: `mustContain` asserts.
+    func waitFor(_ text: String, timeout: TimeInterval = looksTimeout) -> Looks {
+        Looks.until(timeout: timeout) {
+            let (now, there) = glance()
+            guard let now else { return (there ? Self.several : Self.absent, false) }
+            let value = now.value as? String ?? ""
+            return (Self.describe(now), now.label.contains(text) || value.contains(text))
         }
     }
 
-    struct Look {
-        let shown: String
-        let after: TimeInterval
-        /// One line however many lines the element shows (the touch log shows up to three).
-        var line: String { "\"\(shown.replacingOccurrences(of: "\n", with: " | "))\" at \(String(format: "%.1f", after)) s" }
+    /// Waits until the element shows exactly `text` (its value for a field, otherwise its label).
+    func looksUntil(shows text: String, timeout: TimeInterval) -> Looks {
+        Looks.until(timeout: timeout) {
+            let (now, there) = glance()
+            guard let now else { return (there ? Self.several : Self.absent, false) }
+            let shown = now.elementType == .textField || now.elementType == .secureTextField ? now.value as? String ?? "" : now.label
+            return (shown, shown == text)
+        }
     }
 
-    func waitToVanish(timeout: TimeInterval = 5) -> Bool {
-        XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: self)], timeout: timeout) == .completed
+    /// Waits until the element is in the tree. A look is one `exists`, not a snapshot: a snapshot copies the element's
+    /// whole subtree, and these are often whole screens.
+    func appears(timeout: TimeInterval) -> Looks {
+        Looks.until(timeout: timeout) { exists ? (Self.present, true) : (Self.absent, false) }
+    }
+
+    /// Waits until the element has left the tree; the failure says, after the looks, what it was and where.
+    func vanishes(timeout: TimeInterval) -> Looks {
+        Looks.until(timeout: timeout) { exists ? (Self.present, false) : (Self.absent, true) }
+    }
+
+    /// Fails unless the element's label or value comes to contain `text` within `timeout`; the failure lists every look:
+    /// "<what>: never showed "<text>" in 10 s; the looks saw "…" at 0.0 s, …".
+    @discardableResult
+    func mustContain(_ text: String, timeout: TimeInterval = looksTimeout, _ what: String,
+                     file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        waitFor(text, timeout: timeout).check("\(what): never showed \"\(text)\"", file: file, line: line)
+    }
+
+    /// Fails unless the element comes to show exactly `text` within `timeout`; the failure lists every look.
+    @discardableResult
+    func mustShow(_ text: String, timeout: TimeInterval = looksTimeout, _ what: String,
+                  file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        looksUntil(shows: text, timeout: timeout).check("\(what): never showed \"\(text)\"", file: file, line: line)
+    }
+
+    /// Fails unless the element is in the tree within `timeout`; the failure lists the looks and the screen.
+    @discardableResult
+    func mustAppear(timeout: TimeInterval = looksTimeout, _ what: String, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        appears(timeout: timeout).check("\(what): never in the tree", withScreen: true, file: file, line: line)
+    }
+
+    /// Fails unless the element has left the tree within `timeout`; the failure lists every look and what it saw there.
+    @discardableResult
+    func mustVanish(timeout: TimeInterval = looksTimeout, _ what: String, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let looks = vanishes(timeout: timeout)
+        let now = looks.met ? nil : glance().now
+        return looks.check("\(what): still in the tree" + (now.map { " (\(Self.describe($0)) at \($0.frame))" } ?? ""),
+                           withScreen: true, file: file, line: line)
+    }
+
+    static let absent = "nothing in the tree"
+    static let present = "in the tree"
+
+    /// A look in a line: the label, and the value when it says something the label does not.
+    static func describe(_ now: XCUIElementSnapshot) -> String {
+        let value = (now.value as? String).flatMap { $0.isEmpty || $0 == now.label ? nil : $0 }
+            ?? (now.value as? NSNumber).map { "\($0)" }
+        let label = now.label.isEmpty && value != nil ? "" : now.label
+        return value.map { label.isEmpty ? "value \($0)" : "\(label) (value \($0))" } ?? label
+    }
+}
+
+/// One look a wait made: what it saw, when it began and how long it took.
+struct Look {
+    let shown: String
+    /// When the look began, from the wait's start.
+    let after: TimeInterval
+    /// How long it took to answer.
+    let took: TimeInterval
+    /// One line however many lines the element shows (the touch log shows up to three); a slow look says how long.
+    var line: String {
+        "\"\(shown.replacingOccurrences(of: "\n", with: " | "))\" at \(String(format: "%.1f", after)) s"
+            + (took >= 1 ? String(format: " (a %.1f s look)", took) : "")
+    }
+}
+
+/// Every look a wait made, in order, and whether it ended on one that saw what the wait was for.
+struct Looks {
+    let looks: [Look]
+    let met: Bool
+    let timeout: TimeInterval
+
+    /// What the last look saw.
+    var last: String? { looks.last?.shown }
+
+    /// "in 10 s; the looks saw "…" at 0.0 s (a 6.2 s look), "…" at 6.5 s". Looks in a row that saw the same are one entry:
+    /// ""nothing in the tree" in 31 looks from 0.0 s to 7.9 s (the longest 1.2 s)".
+    var said: String {
+        var runs: [[Look]] = []
+        for look in looks {
+            if let last = runs.last?.last, last.shown == look.shown { runs[runs.count - 1].append(look) } else { runs.append([look]) }
+        }
+        let lines = runs.map { run -> String in
+            guard run.count > 1, let first = run.first, let last = run.last else { return run[0].line }
+            let longest = run.map(\.took).max() ?? 0
+            return "\"\(first.shown.replacingOccurrences(of: "\n", with: " | "))\" in \(run.count) looks from "
+                + String(format: "%.1f s to %.1f s", first.after, last.after)
+                + (longest >= 1 ? String(format: " (the longest %.1f s)", longest) : "")
+        }
+        return "in \(Self.seconds(timeout)) s; the looks saw " + lines.joined(separator: ", ")
+    }
+
+    /// Looks, a quarter second apart, until `look` says it saw what it waited for or `timeout` has passed since the
+    /// first look began. A look that has begun is always finished and kept, however long it takes: a slow look is
+    /// read, never given up on. So a wait always has at least one finished look, and its time is spent looking.
+    @MainActor
+    static func until(timeout: TimeInterval, _ look: () -> (shown: String, met: Bool)) -> Looks {
+        let start = Date()
+        var looks: [Look] = []
+        while true {
+            let began = Date().timeIntervalSince(start)
+            let (shown, met) = look()
+            looks.append(Look(shown: shown, after: began, took: Date().timeIntervalSince(start) - began))
+            if met { return Looks(looks: looks, met: true, timeout: timeout) }
+            if Date().timeIntervalSince(start) + 0.25 >= timeout { return Looks(looks: looks, met: false, timeout: timeout) }
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+    }
+
+    /// Fails with `what`, then every look, and (`withScreen`) the screens in the tree after the last look.
+    @MainActor @discardableResult
+    func check(_ what: String, withScreen: Bool = false, file: StaticString, line: UInt) -> Bool {
+        guard !met else { return true }
+        var text = "\(what) \(said)"
+        if withScreen { text += "; then on screen: " + XCUIApplication().screens() }
+        Misses.report(text, file: file, line: line)
+        return false
+    }
+
+    static func seconds(_ time: TimeInterval) -> String {
+        time == time.rounded() ? "\(Int(time))" : String(format: "%.1f", time)
+    }
+}
+
+extension XCUIApplication {
+    /// The `*_screen` ids in the tree now, and any alert or sheet over them.
+    func screens() -> String {
+        let screens = identifiers().filter { $0.hasSuffix("_screen") }
+        let over = (alerts.allElementsBoundByIndex.map { "an alert \"\($0.label)\"" }
+                    + sheets.allElementsBoundByIndex.map { "a sheet \"\($0.label)\"" })
+        return (screens.isEmpty ? "no screen id" : screens.joined(separator: " "))
+            + (over.isEmpty ? "" : "; over it " + over.joined(separator: ", "))
     }
 }
 
@@ -448,7 +571,9 @@ extension XCUIApplication {
     /// "Not Now", as a person answers it, so the screens after it are still checked.
     func answerSavePasswordCard(within wait: TimeInterval = 0, file: StaticString = #filePath, line: UInt = #line) {
         let card = descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Save Password?")).firstMatch
-        guard wait > 0 ? card.waitForExistence(timeout: wait) : card.exists else { return }
+        // looked for, not waited for with XCTest's own wait: when the card is not there (nearly always), that wait's
+        // failure costs XCUITest's debug capture, 9.7 s once (CI run 44388145174)
+        guard wait > 0 ? card.appears(timeout: wait).met : card.exists else { return }
         Misses.report("iOS asked \"Save Password?\" over \(identifiers().filter { $0.hasSuffix("_screen") }.joined(separator: " ")); "
                       + "answered Not Now", file: file, line: line)
         let notNow = buttons["Not Now"].firstMatch
@@ -456,18 +581,36 @@ extension XCUIApplication {
     }
 }
 
-/// The system's notification prompt, which Springboard draws. Allows it if it is there.
-/// How long `looksUntil` / `mustShow` look for a text that should already be on screen, or come within a second: the
-/// touch log after a tap or after a step that must touch nothing, and Settings' notification status.
+/// How long a wait looks for something that should already be there, or come within a second: a screen after a tap,
+/// a status after a gesture, the touch log after a tap or after a step that must touch nothing.
 ///
-/// 10 s because of what one look has cost on GitHub's macOS arm64 runners: up to 6.2 s in release run 44415519436
-/// (one existence check in `testSavedComesLateUIKit`, 49.95 to 56.16 s) and 3.8 s in run 44388145174. At 6 s a look,
-/// 10 s still holds two looks. It costs nothing when the check passes: the loop stops at the first look that shows the
-/// text, as the budget check's 10 s does (FlowTests).
+/// 10 s because of what one look has cost on GitHub's macOS arm64 runners: 6.2 s (an existence check in
+/// `testSavedComesLateUIKit`, release run 44415519436, 49.95 to 56.16 s), 9.2 s (the care guide's one look, build run
+/// 44486580432, 20.04 to 29.27 s, nearly all of it XCUITest's debug capture, which `Looks` does not make) and 3.8 s
+/// (run 44388145174). A wait's timeout must hold the time the thing takes to come, plus one slow look that began just
+/// before it came and missed it, plus the look after: what comes within a second is read by 1 + 6.2 + 0.25 s, about
+/// 7.5 s. It costs nothing when the check passes: the looks stop at the first that sees it.
+///
+/// Something that comes after a known time waits that time plus this: `slowLoad + looksTimeout`, `careGuideTimeout`.
 let looksTimeout: TimeInterval = 10
 
+/// A slow load's wait, `LoadPlan.slowSeconds` in MossgroveKit (the UI tests do not link it): the delivery slots, and
+/// any list with Settings › Slow loading on.
+let slowLoad: TimeInterval = 3
+
+/// How long the care guide gets to say "Care guide loaded" after its bench is tapped.
+///
+/// The bundled page has been seen to load late on CI's runners, though it loads nothing from the network. In build run
+/// 44486580432 it said "Care guide loaded" 5.4 to 5.7 s after the tap (light screenshots, the screen recording: the tap's
+/// event at 17.85 to 18.18 s, the last "Loading the care guide…" frame at 23.52 s, "loaded" at 23.54 s). In the same run
+/// the dark screenshots saw it loading about 3.2 s after the tap and loaded by 8.2 s; Flows test 07, loading at about 4.0 s and
+/// loaded by 7.9 s. So 8.2 s for the page, plus `looksTimeout` for a slow look in flight when it loads and the look
+/// after, rounded up: 20 s. Until now it was 10 s, the whole of which one XCTest look could take.
+let careGuideTimeout: TimeInterval = 20
+
+/// The system's notification prompt, which Springboard draws. Allows it if it is there.
 func allowNotificationsIfAsked() {
     let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     let allow = springboard.alerts.buttons["Allow"]
-    if allow.waitForExistence(timeout: 8) { allow.tap() }
+    if allow.appears(timeout: 8).met { allow.tap() }
 }

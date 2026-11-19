@@ -230,8 +230,9 @@ final class CICensusTests: XCTestCase {
                            "\(file): a tap on an id that does not wait for it")
         }
         let support = try Repo.text("MossgroveUITests/Support.swift")
-        XCTAssertNotNil(support.range(of: "guard button.tapWhenThere(file: file, line: line) else { return }\n        if !button.waitToVanish(timeout: 5) {"))
-        XCTAssertNotNil(support.range(of: "guard waitForExistence(timeout: timeout) else {"))
+        XCTAssertNotNil(support.range(of: "guard button.tapWhenThere(file: file, line: line) else { return }\n"
+                                      + "        button.mustVanish(timeout: looksTimeout, \"Back did not leave the screen: top_bar_back\", file: file, line: line)"))
+        XCTAssertNotNil(support.range(of: "guard mustAppear(timeout: timeout, \"could not tap \\(description)\", file: file, line: line) else { return false }"))
         let focus = try XCTUnwrap(support.components(separatedBy: "private func focusAtEnd(").last?.components(separatedBy: "\n    }\n").first)
         XCTAssertNil(focus.range(of: "XCTNSPredicateExpectation"), "the focus is waited for by an expectation XCTest polls once a second")
         XCTAssertNotNil(focus.range(of: "if waitForFocus(until: tapped.addingTimeInterval(3)) { return true }"))
@@ -239,6 +240,31 @@ final class CICensusTests: XCTestCase {
         XCTAssertNotNil(walk.range(of: "        Misses.keep()\n        defer { Misses.stopKeeping() }"))
         XCTAssertNotNil(walk.range(of: "let couldNot = Misses.take()"))
         XCTAssertNotNil(walk.range(of: "let whole = XCTAttachment(string: app.debugDescription)"))
+    }
+
+    /// Every wait in the UI tests is a series of looks that it finishes and keeps (`Looks.until`), and a failure lists
+    /// them. None is XCTest's own (`waitForExistence`, `waitToVanish`'s expectation, `XCTWaiter`): in release run
+    /// 44415519436 and build run 44486580432 one of its looks took 6 to 9 s, it gave up with that look unread, and it
+    /// said nothing of what was on screen. `waitFor` keeps its meaning: label or value CONTAINS the text.
+    func testTheUITestsWaitByLooking() throws {
+        for file in ["FlowTests", "IdWalkTests", "LobbyTests", "ScreenshotTests", "Support"] {
+            let code = try Repo.text("MossgroveUITests/\(file).swift").components(separatedBy: "\n")
+                .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }.joined(separator: "\n")
+            for xctest in ["waitForExistence(", "waitToVanish(", "XCTWaiter", "XCTNSPredicateExpectation", ".wait(for:", " wait(for:"] {
+                XCTAssertNil(code.range(of: xctest), "\(file) waits with XCTest's \(xctest)")
+            }
+            XCTAssertEqual(try matches(#"XCTAssert(True|False)\([^\n]*\.(waitFor|appears|vanishes|looksUntil)\("#, in: code).count, 0,
+                           "\(file): a wait asserted without its looks")
+        }
+        let support = try Repo.text("MossgroveUITests/Support.swift")
+        XCTAssertNotNil(support.range(of: "return (Self.describe(now), now.label.contains(text) || value.contains(text))"), "waitFor is not CONTAINS")
+        XCTAssertNotNil(support.range(of: "if Date().timeIntervalSince(start) + 0.25 >= timeout { return Looks(looks: looks, met: false, timeout: timeout) }"))
+        XCTAssertNotNil(support.range(of: "let looksTimeout: TimeInterval = 10\n"))
+        XCTAssertNotNil(support.range(of: "let careGuideTimeout: TimeInterval = 20\n"))
+        XCTAssertNotNil(try Repo.text("MossgroveUITests/ScreenshotTests.swift").range(of:
+            "app.id(\"webview_status\").mustContain(\"Care guide loaded\", timeout: careGuideTimeout, \"the care guide's webview_status\")"))
+        XCTAssertNotNil(try Repo.text("MossgroveUITests/FlowTests.swift").range(of:
+            "expect(\"webview_status\", shows: \"Care guide loaded\", timeout: careGuideTimeout)"))
     }
 
     /// A tap that something covers is not made: the miss names the cover and the walk goes on (fourth CI run: XCUITest's
@@ -259,7 +285,7 @@ final class CICensusTests: XCTestCase {
         XCTAssertNotNil(support.range(of: "NSPredicate(format: \"label == %@\", \"Save Password?\")"))
         XCTAssertNotNil(try Repo.text("MossgroveUITests/IdWalkTests.swift").range(of: "step.act(app)\n                app.answerSavePasswordCard()"))
         let flows = try Repo.text("MossgroveUITests/FlowTests.swift")
-        XCTAssertNotNil(flows.range(of: "XCTAssertTrue(app.keyboards.firstMatch.waitToVanish(timeout: 3), \"the keyboard stayed up after choosing an aisle\")"))
+        XCTAssertNotNil(flows.range(of: "app.keyboards.firstMatch.mustVanish(\"the keyboard after choosing an aisle\")"))
         XCTAssertNotNil(flows.range(of: "    override func setUp() {\n        continueAfterFailure = true"), "a flow stops at its first failed check")
     }
 
