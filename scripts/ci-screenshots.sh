@@ -3,12 +3,14 @@
 #
 #   scripts/ci-screenshots.sh <udid> <light|dark> <out>
 #
-# The theme is the simulator's own appearance, so the app follows the system as it does by default. Needs a
-# `build-for-testing` in build/DerivedData first. CI only.
+# The theme is the simulator's own appearance, so the app follows the system as it does by default. Needs the build
+# job's build for testing, unpacked by scripts/ci-unpack-for-testing.sh, which names its .xctestrun as $XCTESTRUN.
+# CI only.
 set -euo pipefail
 udid="${1:?usage: scripts/ci-screenshots.sh <udid> <light|dark> <out>}"
 theme="${2:?light or dark}"
 out="${3:?an output folder}"
+xctestrun="${XCTESTRUN:?the build for testing, unpacked: scripts/ci-unpack-for-testing.sh}"
 cd "$(dirname "$0")/.."
 
 folder="$out/docs/screenshots/$theme"
@@ -19,7 +21,7 @@ xcrun simctl ui "$udid" appearance "$theme"
 # read after the pictures are counted, so a red run still says which pictures it made.
 status=0
 TEST_RUNNER_MOSSGROVE_SCREENSHOTS="$(cd "$folder" && pwd)" xcodebuild test-without-building \
-  -project Mossgrove.xcodeproj -scheme Mossgrove -destination "id=$udid" -derivedDataPath build/DerivedData \
+  -xctestrun "$xctestrun" -destination "id=$udid" \
   -only-testing:MossgroveUITests/ScreenshotTests -resultBundlePath "build/results/screenshots-$theme.xcresult" || status=$?
 
 # The 31 screens, by the names ScreenshotTests gives them (CICensusTests checks that the two lists agree).

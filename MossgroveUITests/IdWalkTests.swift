@@ -9,7 +9,24 @@ final class IdWalkTests: XCTestCase {
     struct Step {
         let name: String
         let ids: [String]
+        /// A banner the step brings up, looked for right after `act` (see `Banner`).
+        var banner: Banner? = nil
         let act: (XCUIApplication) -> Void
+    }
+
+    /// A banner lasts 10 s (`AppModel.snackSeconds`), and the walk reads a screen only after its look for iOS's "Save
+    /// Password?" card and its one read of the whole tree, each of which has taken several seconds on GitHub's runners.
+    /// Release run 44511785935 found neither `snackbar` nor `snackbar_text` on "Shop, refreshed", where the same commit's
+    /// build run an hour earlier had found both. So the banner is looked for at once, right after the step's action:
+    /// one look after another (`Looks.until`, for `looksTimeout`) until `snackbar_text` shows `text` with `snackbar`
+    /// in the tree around it. That showing is the step's check: the text comes only when the action's work is done (for
+    /// the refresh, once ShopView's refresh() has finished), and it is read from the element with that id, so a banner
+    /// the app no longer shows, or shows without either id, is never seen and fails the walk as before. Seen, the two
+    /// ids count as in the tree; if the walk's later read no longer finds them, the walk says the banner had gone by
+    /// then, and fails nothing for it.
+    struct Banner {
+        let text: String
+        static let ids = ["snackbar", "snackbar_text"]
     }
 
     // MARK: The walk, as data, so testTheWalkCoversEveryId can read it
@@ -41,7 +58,7 @@ final class IdWalkTests: XCTestCase {
         Step(name: "Shop, no match", ids: ["shop_empty", "shop_empty_action"]) { app in
             app.id("shop_search").replace(with: "velvet\n")
         },
-        Step(name: "Shop, refreshed", ids: ["snackbar", "snackbar_text"]) { app in
+        Step(name: "Shop, refreshed", ids: ["snackbar", "snackbar_text"], banner: Banner(text: "Catalogue is up to date")) { app in
             app.id("shop_empty_action").tapWhenThere()
             pullToRefresh(app)
         },
@@ -329,14 +346,32 @@ final class IdWalkTests: XCTestCase {
         for step in steps {
             XCTContext.runActivity(named: step.name) { activity in
                 step.act(app)
+                // a banner first, before anything else spends its 10 s
+                let started = Date()
+                let banner = step.banner.map { app.looksForBanner(showing: $0.text) }
+                if let looks = banner, !looks.met {
+                    problems.append("\(step.name): no banner after the action: snackbar_text never showed "
+                                    + "\"\(step.banner?.text ?? "")\" with snackbar around it \(looks.said)")
+                }
+                let seenInTheBanner = banner?.met == true ? Set(Banner.ids) : []
                 app.answerSavePasswordCard()
                 let couldNot = Misses.take()
                 if !couldNot.isEmpty { problems.append("\(step.name): \(couldNot.joined(separator: "; "))") }
                 // One read of the whole tree first, at once: a spinner's id lasts 3 s, and waiting on each id in turn
                 // spent them before it was the spinner's turn (second CI run: slow_loading). Only what that read
-                // missed is waited for.
+                // missed is waited for, but for a banner's ids that its own look saw.
                 let first = Set(app.identifiers())
-                let missing = step.ids.filter { !first.contains($0) && !app.id($0).appears(timeout: looksTimeout).met }
+                let read = Date().timeIntervalSince(started)
+                let gone = step.ids.filter { !first.contains($0) && seenInTheBanner.contains($0) }
+                let missing = step.ids.filter { !first.contains($0) && !seenInTheBanner.contains($0)
+                                                && !app.id($0).appears(timeout: looksTimeout).met }
+                if let looks = banner, looks.met {
+                    let seen = String(format: "%.1f", looks.looks.last?.after ?? 0)
+                    let words = "\(Banner.ids.joined(separator: " ")) seen showing \"\(step.banner?.text ?? "")\" \(seen) s "
+                        + "after the action" + (gone.isEmpty ? "" : String(format: "; gone by the walk's read of the "
+                        + "tree %.1f s after it: a banner that had already gone, not a missing id", read))
+                    XCTContext.runActivity(named: words) { _ in }
+                }
                 let tree = app.identifiers()
                 // An id-shaped name that is not in the list would be an id outside the spec.
                 let outside = tree.filter { id in
@@ -350,7 +385,7 @@ final class IdWalkTests: XCTestCase {
                     + (outside.isEmpty ? "" : "; outside the list \(outside.joined(separator: " "))")
                     + (repeated.isEmpty ? "" : "; more than one element named \(repeated.joined(separator: " "))")
                 XCTContext.runActivity(named: found) { _ in }
-                let clean = missing.isEmpty && outside.isEmpty && couldNot.isEmpty
+                let clean = missing.isEmpty && outside.isEmpty && couldNot.isEmpty && banner?.met != false
                 let shot = XCTAttachment(screenshot: app.screenshot())
                 shot.name = step.name
                 shot.lifetime = clean ? .deleteOnSuccess : .keepAlways
@@ -372,6 +407,20 @@ final class IdWalkTests: XCTestCase {
         let prefixes = Set(SpecIds.shared.ids.map { String($0.id.prefix { $0 != "_" }) })
         guard let head = id.split(separator: "_").first, id.contains("_") else { return prefixes.contains(id) }
         return prefixes.contains(String(head))
+    }
+}
+
+extension XCUIApplication {
+    /// Looks until `snackbar_text` shows exactly `text` with `snackbar` in the tree, for `looksTimeout`; every look kept.
+    func looksForBanner(showing text: String) -> Looks {
+        let label = id("snackbar_text")
+        let box = id("snackbar")
+        return Looks.until(timeout: looksTimeout) {
+            let (now, there) = label.glance()
+            guard let now else { return (there ? XCUIElement.several : XCUIElement.absent, false) }
+            let around = box.exists
+            return (now.label + (around ? "" : " (no snackbar around it)"), now.label == text && around)
+        }
     }
 }
 

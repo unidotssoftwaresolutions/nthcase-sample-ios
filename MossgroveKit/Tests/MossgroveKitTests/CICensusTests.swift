@@ -283,10 +283,48 @@ final class CICensusTests: XCTestCase {
         let back = try XCTUnwrap(support.components(separatedBy: "    func back(").last?.components(separatedBy: "\n    }\n").first)
         XCTAssertNotNil(back.range(of: "answerSavePasswordCard(within: 1.5, file: file, line: line)"))
         XCTAssertNotNil(support.range(of: "NSPredicate(format: \"label == %@\", \"Save Password?\")"))
-        XCTAssertNotNil(try Repo.text("MossgroveUITests/IdWalkTests.swift").range(of: "step.act(app)\n                app.answerSavePasswordCard()"))
+        // AMENDED (CI in parts): a step's banner is looked for between its action and the card (see
+        // testTheWalkLooksForABannerAtOnce); the card is still answered before the walk reads the screen.
+        XCTAssertNotNil(try Repo.text("MossgroveUITests/IdWalkTests.swift").range(of: "step.act(app)\n"
+            + "                // a banner first, before anything else spends its 10 s\n"
+            + "                let started = Date()\n"
+            + "                let banner = step.banner.map { app.looksForBanner(showing: $0.text) }\n"))
+        XCTAssertNotNil(try Repo.text("MossgroveUITests/IdWalkTests.swift").range(of: "let seenInTheBanner = banner?.met == true ? Set(Banner.ids) : []\n"
+            + "                app.answerSavePasswordCard()\n                let couldNot = Misses.take()\n"))
         let flows = try Repo.text("MossgroveUITests/FlowTests.swift")
         XCTAssertNotNil(flows.range(of: "app.keyboards.firstMatch.mustVanish(\"the keyboard after choosing an aisle\")"))
         XCTAssertNotNil(flows.range(of: "    override func setUp() {\n        continueAfterFailure = true"), "a flow stops at its first failed check")
+    }
+
+    /// New with CI in parts: release run 44511785935 found neither `snackbar` nor `snackbar_text` on the walk's "Shop,
+    /// refreshed", where the same commit's build run had found both an hour earlier. The banner lasts 10 s, and the walk
+    /// read the screen only after its look for the "Save Password?" card and its read of the whole tree. Now the step
+    /// looks for the banner right after the refresh, one look after another, until `snackbar_text` shows the refresh's
+    /// own text with `snackbar` around it. That is still the step's check: the text comes only once the refresh is
+    /// done, and it is read from the element with that id, so a banner the app no longer shows, or shows without either
+    /// id, is never seen and fails the walk. Only the two ids that look saw are spared the walk's later wait, and only
+    /// when it saw them; the walk then says the banner had gone by its read, and fails nothing for that.
+    func testTheWalkLooksForABannerAtOnce() throws {
+        let walk = try Repo.text("MossgroveUITests/IdWalkTests.swift")
+        XCTAssertTrue(walk.contains("Step(name: \"Shop, refreshed\", ids: [\"snackbar\", \"snackbar_text\"], banner: Banner(text: \"Catalogue is up to date\"))"))
+        XCTAssertEqual(walk.components(separatedBy: "banner: Banner(").count - 1, 1, "a banner step the census does not know")
+        let texts = try Repo.text("MossgroveKit/Sources/MossgroveKit/Texts.swift")
+        XCTAssertTrue(texts.contains("public static let refreshed = \"Catalogue is up to date\""), "the refresh's own text")
+        XCTAssertTrue(try Repo.text("Mossgrove/Screens/ShopView.swift").contains("model.showSnack(Texts.refreshed)"))
+        XCTAssertTrue(walk.contains("        static let ids = [\"snackbar\", \"snackbar_text\"]\n"))
+        // the look: by id, the exact text, the box around it, for looksTimeout, every look kept
+        let look = try XCTUnwrap(walk.components(separatedBy: "func looksForBanner(showing text: String) -> Looks {").last?
+            .components(separatedBy: "\n    }\n").first)
+        XCTAssertTrue(look.contains("let label = id(\"snackbar_text\")") && look.contains("let box = id(\"snackbar\")"))
+        XCTAssertTrue(look.contains("return Looks.until(timeout: looksTimeout) {"))
+        XCTAssertTrue(look.contains("now.label == text && around)"))
+        // not seen: a problem of the step; seen: only those two ids skip the later wait, and only then
+        XCTAssertTrue(walk.contains("if let looks = banner, !looks.met {\n                    problems.append("))
+        XCTAssertTrue(walk.contains("let gone = step.ids.filter { !first.contains($0) && seenInTheBanner.contains($0) }"))
+        XCTAssertTrue(walk.contains("let missing = step.ids.filter { !first.contains($0) && !seenInTheBanner.contains($0)\n"
+                                    + "                                                && !app.id($0).appears(timeout: looksTimeout).met }"))
+        XCTAssertTrue(walk.contains("let clean = missing.isEmpty && outside.isEmpty && couldNot.isEmpty && banner?.met != false"))
+        XCTAssertTrue(try Repo.text("Mossgrove/App/AppModel.swift").contains("static let snackSeconds = 10.0"), "the banner's 10 s")
     }
 
     /// A UI test hands a link to the running app the way the system does (Support's openLinkWhileRunning). Only
@@ -360,20 +398,35 @@ final class CICensusTests: XCTestCase {
     // suite on "Run workflow" and on the 1st of each month; release.yml always asks for it. The checks below read the job's steps
     // in ci.yml now, read all three files for pins, permissions and timeouts, and read build.yml and release.yml for
     // when each part runs. Nothing they checked before is checked less.
+    // AMENDED (CI in parts, 2026-11-19): ci.yml's one job became a job for each check. Release run 44511785935 failed on
+    // one check of eleven, the id walk, and "Re-run failed jobs" could only re-run the whole hour. Now `fast` holds
+    // MossgroveKit's tests and the zip, `build` builds for testing once, `screenshots` (light, dark), `tests` (the id
+    // walk, the flows) and `lobby` (the unit tests, the Lobby, the tabs on an older iOS) each run only their own tests
+    // on what `build` built, and `summary` lists every check. The checks below read each job of ci.yml. Nothing they
+    // checked before is checked less: each check is still one step with its own timeout, every check still runs
+    // whatever another found, and the table still names every check and every failing test.
     private static let workflows = [".github/workflows/build.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
-
-    /// The steps of the device suite: they run only when the caller asks for the suite.
-    /// AMENDED (1.1): and the Lobby's own step, `lobby`, after the flows.
-    private static let deviceSteps = ["simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "lobby", "tabs_older"]
 
     /// The files a push or a pull request may change without starting CI.
     private static let ignored = ["README.md", "CONTRIBUTING.md", "SECURITY.md", "LICENSE", "NOTICE", "docs/screenshots/**"]
 
-    /// The test job's steps, as blocks of text, in order.
-    private func buildSteps() throws -> [String] {
-        let source = try Repo.text(".github/workflows/ci.yml") // AMENDED: the job was in build.yml
-        let steps = try XCTUnwrap(source.components(separatedBy: "\n    steps:\n").last)
-        return steps.components(separatedBy: "\n      - ").map { $0.hasPrefix("      - ") ? String($0.dropFirst(8)) : $0 }
+    /// The jobs of ci.yml, in order, as (id, text): each from its id's line to the next job's.
+    private func ciJobs() throws -> [(id: String, text: String)] {
+        let source = try Repo.text(".github/workflows/ci.yml")
+        let body = try XCTUnwrap(source.components(separatedBy: "\njobs:\n").last)
+        let regex = try NSRegularExpression(pattern: #"(?m)^  ([a-z_]+):$"#)
+        let found = regex.matches(in: body, range: NSRange(body.startIndex..., in: body))
+        return try found.enumerated().map { index, match in
+            let start = try XCTUnwrap(Range(match.range, in: body)).lowerBound
+            let end = index + 1 < found.count ? try XCTUnwrap(Range(found[index + 1].range, in: body)).lowerBound : body.endIndex
+            return (String(body[try XCTUnwrap(Range(match.range(at: 1), in: body))]), String(body[start..<end]))
+        }
+    }
+
+    /// One job's steps, as blocks of text, in order.
+    private func steps(of job: String) throws -> [String] {
+        let list = try XCTUnwrap(job.components(separatedBy: "\n    steps:\n").dropFirst().first)
+        return list.components(separatedBy: "\n      - ").map { $0.hasPrefix("      - ") ? String($0.dropFirst(8)) : $0 }
     }
 
     /// The condition of one step, or "" when it has none.
@@ -381,10 +434,17 @@ final class CICensusTests: XCTestCase {
         try matches(#"(?m)^        if: (.*)$|^if: (.*)$"#, in: step).first.map { $0[1] + $0[2] } ?? ""
     }
 
+    /// The condition of one job, or "" when it has none.
+    private func jobCondition(_ job: String) throws -> String {
+        try matches(#"(?m)^    if: (.*)$"#, in: job).first?[1] ?? ""
+    }
+
     /// Every action is pinned to a commit with its version beside it; the workflows read only, but the release job,
     /// and every job has a timeout.
     /// AMENDED: a job may also call this repository's own ci.yml by its path, which no one else can move; every step
     /// has a timeout of its own as well; and these three are the only workflows.
+    /// AMENDED (CI in parts): an action may be a path inside its repository (upload-artifact/merge), pinned the same
+    /// way; a step's timeout may be its matrix entry's; and nothing retries a test.
     func testTheWorkflowsArePinnedReadOnlyAndBounded() throws {
         for path in Self.workflows {
             let source = try Repo.text(path)
@@ -397,21 +457,25 @@ final class CICensusTests: XCTestCase {
                     XCTAssertNotEqual(path, ".github/workflows/ci.yml", "ci.yml calls itself")
                     continue
                 }
-                XCTAssertNotNil(use[1].range(of: #"^[\w.-]+/[\w.-]+@[0-9a-f]{40}$"#, options: .regularExpression), "\(path): \(use[1]) is not a commit")
+                XCTAssertNotNil(use[1].range(of: #"^[\w.-]+/[\w.-]+(/[\w.-]+)?@[0-9a-f]{40}$"#, options: .regularExpression), "\(path): \(use[1]) is not a commit")
                 XCTAssertNotNil(use[2].range(of: #"^ # v\d"#, options: .regularExpression), "\(path): \(use[1]) has no version beside it")
             }
             XCTAssertTrue(source.contains("\npermissions:\n  contents: read\n"), "\(path) reads only")
             let jobs = try matches(#"\n    runs-on: "#, in: source).count
             XCTAssertEqual(try matches(#"\n    timeout-minutes: \d+\n"#, in: source).count, jobs, "\(path): a job without a timeout")
             for block in source.components(separatedBy: "\n    steps:\n").dropFirst() {
-                // the steps of one job end where the next job starts
+                // the steps of one job end where the next job (or its comment) starts
                 let end = block.range(of: #"\n  [^ \n]"#, options: .regularExpression)?.lowerBound ?? block.endIndex
                 let job = "\n" + String(block[..<end])
                 let steps = try matches(#"\n      - "#, in: job).count
                 XCTAssertGreaterThan(steps, 0, path)
-                XCTAssertEqual(try matches(#"\n        timeout-minutes: \d+\n"#, in: job).count, steps, "\(path): a step without a timeout")
+                XCTAssertEqual(try matches(#"\n        timeout-minutes: (\d+|\$\{\{ matrix\.timeout \}\})\n"#, in: job).count, steps,
+                               "\(path): a step without a timeout")
             }
             XCTAssertNil(source.range(of: "continue-on-error"), "\(path): a check that cannot fail its job")
+            for retry in ["-retry-tests-on-failure", "-test-iterations", "-run-tests-until-failure"] {
+                XCTAssertNil(source.range(of: retry), "\(path): a test that is tried again until it passes")
+            }
         }
         XCTAssertNil(try Repo.text(".github/workflows/build.yml").range(of: "contents: write"))
         XCTAssertNil(try Repo.text(".github/workflows/ci.yml").range(of: "contents: write"))
@@ -420,54 +484,148 @@ final class CICensusTests: XCTestCase {
         XCTAssertEqual(files, ["build.yml", "ci.yml", "release.yml"])
     }
 
-    /// The first run stopped at its first failing check and proved nothing after it. Now every step after the first
-    /// check runs whatever came before (`!cancelled()` or `always()`); each check is its own step with its own
-    /// timeout; the uploads happen on failure too; and the last step lists every check.
+    /// The first run stopped at its first failing check and proved nothing after it. Then every check became a step
+    /// of its own with its own timeout that ran whatever came before, and the last step listed every check.
     /// AMENDED: the device suite's steps, and the uploads of what only they make, run only when the caller asks for
     /// the suite (`inputs.devices`); MossgroveKit's tests and the zip run every time.
-    func testEveryCheckRunsAndIsReported() throws {
-        let steps = try buildSteps()
-        let first = try XCTUnwrap(steps.firstIndex { $0.contains("swift test --package-path MossgroveKit") })
-        for step in steps[(first + 1)...] {
-            let condition = try stepCondition(step)
-            XCTAssertTrue(condition.contains("!cancelled()") || condition.contains("always()"),
-                          "a step an earlier failure would skip: \(step.prefix(60))")
-        }
-        let checks = ["ci-screenshots.sh \"$UDID\" light", "ci-screenshots.sh \"$UDID\" dark", "-only-testing:MossgroveTests ",
-                      "-only-testing:MossgroveUITests/IdWalkTests ", "-only-testing:MossgroveUITests/FlowTests ",
-                      "-only-testing:MossgroveUITests/LobbyTests ",
+    /// AMENDED (CI in parts): each check is a step of its own in a job of its own (the three short ones share `lobby`),
+    /// so "Re-run failed jobs" re-runs that check. No check job builds anything: each runs `test-without-building` on
+    /// the one build `build` made. Every check still runs whatever another found, the device suite's jobs still run
+    /// only when asked, and `summary` lists every check, after every job, whatever they found.
+    func testEveryCheckIsAJobOfItsOwnAndReported() throws {
+        let jobs = try ciJobs()
+        XCTAssertEqual(jobs.map(\.id), ["fast", "build", "screenshots", "tests", "lobby", "summary"])
+        let job = Dictionary(uniqueKeysWithValues: jobs.map { ($0.id, $0.text) })
+        let ci = try Repo.text(".github/workflows/ci.yml")
+
+        // Each check once, a step of its own with a timeout of its own.
+        let checks = ["swift test --package-path MossgroveKit", "scripts/package-simulator-app.sh \"$VERSION\"",
+                      "xcodebuild build-for-testing ", "scripts/ci-screenshots.sh \"$UDID\" \"$THEME\" out/screenshots",
+                      "-only-testing:\"$ONLY\"", "-only-testing:MossgroveTests ", "-only-testing:MossgroveUITests/LobbyTests ",
                       "-only-testing:MossgroveUITests/IdWalkTests/testEveryTabIsTheButtonAPersonTaps ",
-                      "scripts/ci-simulator.sh older", "scripts/package-simulator-app.sh"]
+                      "scripts/ci-simulator.sh older"]
+        let everyStep = try jobs.flatMap { try steps(of: $0.text) }
         for check in checks {
-            let owners = steps.filter { $0.contains(check) }
+            XCTAssertEqual(ci.components(separatedBy: check).count - 1, 1, "\(check) is not in ci.yml once")
+            let owners = everyStep.filter { $0.contains(check) }
             XCTAssertEqual(owners.count, 1, "\(check) is not one step of its own")
             XCTAssertNotNil(owners.first?.range(of: "timeout-minutes: "), "\(check) has no timeout of its own")
         }
-        for upload in steps.filter({ $0.contains("actions/upload-artifact@") }) {
-            XCTAssertFalse(upload.contains("failure()") || upload.contains("success()"), "an upload that depends on the outcome")
+        // The same-shaped checks are matrices, one job each, none stopping another.
+        XCTAssertTrue(try XCTUnwrap(job["screenshots"]).contains("      fail-fast: false\n      matrix:\n        theme: [light, dark]\n"))
+        let tests = try XCTUnwrap(job["tests"])
+        XCTAssertTrue(tests.contains("      fail-fast: false\n      matrix:\n        include:\n"))
+        XCTAssertTrue(tests.contains("          - check: walk\n            name: Id walk (IdWalkTests)\n"
+                                     + "            only: MossgroveUITests/IdWalkTests\n            bundle: id-walk\n            timeout: 45\n"))
+        XCTAssertTrue(tests.contains("          - check: flows\n            name: Flows (FlowTests)\n"
+                                     + "            only: MossgroveUITests/FlowTests\n            bundle: flows\n            timeout: 40\n"))
+        XCTAssertTrue(tests.contains("        timeout-minutes: ${{ matrix.timeout }}\n"))
+
+        // The device suite's jobs, and only they, wait for inputs.devices; the summary runs whatever happened.
+        for id in ["build", "screenshots", "tests", "lobby"] {
+            XCTAssertTrue(try jobCondition(XCTUnwrap(job[id])).contains("inputs.devices"), "\(id) runs without the suite")
         }
-        XCTAssertTrue(steps.contains { $0.contains("name: test-results") && $0.contains("path: build/results/") })
-        let summary = try XCTUnwrap(steps.last)
-        XCTAssertTrue(summary.contains("if: always()") && summary.contains("scripts/ci-test-summary.py"), "the last step is the summary")
-        let ids = steps.compactMap { try? matches(#"(?m)^        id: (\w+)$"#, in: $0).first?[1] }
-        XCTAssertEqual(ids, ["kit", "simulator", "build", "shots_light", "shots_dark", "unit", "walk", "flows", "lobby", "tabs_older", "package"])
-        for id in ids {
-            XCTAssertTrue(summary.contains("${{ steps.\(id).outcome }}"), "the summary does not report \(id)")
+        XCTAssertEqual(try jobCondition(XCTUnwrap(job["fast"])), "", "the fast checks run every time")
+        XCTAssertEqual(try jobCondition(XCTUnwrap(job["summary"])), "always()")
+
+        // No check job builds: each downloads the one build and runs only its own tests on it.
+        for id in ["screenshots", "tests", "lobby"] {
+            let text = try XCTUnwrap(job[id])
+            XCTAssertTrue(text.contains("    needs: build\n") || text.contains("    needs: [build, fast]\n"), "\(id) does not wait for the build")
+            XCTAssertTrue(text.contains("          name: for-testing\n          path: build\n"), "\(id) does not download the build")
+            XCTAssertTrue(text.contains("run: scripts/ci-unpack-for-testing.sh\n"), "\(id) does not unpack the build")
+            for building in ["build-for-testing", "package-simulator-app", "xcodebuild build ", "xcodebuild test ", "swift build"] {
+                XCTAssertNil(text.range(of: building), "\(id) builds: \(building)")
+            }
+            XCTAssertEqual(text.components(separatedBy: "xcodebuild ").count - 1,
+                           text.components(separatedBy: "xcodebuild test-without-building -xctestrun \"$XCTESTRUN\" ").count - 1,
+                           "\(id) runs xcodebuild other than on the build")
         }
-        for step in steps {
-            let condition = try stepCondition(step)
-            if let id = try matches(#"(?m)^        id: (\w+)$"#, in: step).first?[1] {
-                XCTAssertEqual(condition.contains("inputs.devices && "), Self.deviceSteps.contains(id),
-                               "\(id): the device suite's steps, and only they, wait for inputs.devices")
+        XCTAssertNotNil(try Repo.text("scripts/ci-screenshots.sh").range(of: "xcodebuild test-without-building \\\n  -xctestrun \"$xctestrun\" "))
+        XCTAssertNotNil(try XCTUnwrap(job["build"]).range(of: "tar -C build/DerivedData/Build -cf build/for-testing.tar Products"),
+                        "the build's executables lose their permissions in an artifact's zip")
+
+        // Within a job, every check runs whatever another found; the report and the uploads run on failure too.
+        for (id, text) in jobs where id != "summary" {
+            let list = try steps(of: text)
+            for step in list {
+                let condition = try stepCondition(step)
+                guard let stepId = try matches(#"(?m)^        id: (\w+)$"#, in: step).first?[1] else {
+                    if step.contains("actions/upload-artifact@") {
+                        XCTAssertFalse(condition.contains("failure()") || condition.contains("success()"), "\(id): an upload that depends on the outcome")
+                    }
+                    continue
+                }
+                switch stepId {
+                case "kit", "build", "simulator":
+                    XCTAssertEqual(condition, "", "\(id).\(stepId) is the job's first check or setup")
+                case "report":
+                    XCTAssertEqual(condition, "always()", "\(id): the report must run whatever the checks found")
+                    XCTAssertTrue(step.contains("run: python3 scripts/ci-test-summary.py job"))
+                    XCTAssertTrue(step.contains("SIMULATOR: ${{ steps.simulator.outcome }}"))
+                default:
+                    XCTAssertTrue(condition.contains("!cancelled()"), "\(id).\(stepId): a check an earlier failure would skip")
+                }
             }
         }
-        for name in ["name: screenshots\n", "name: test-results\n"] {
-            let upload = try XCTUnwrap(steps.first { $0.contains(name) })
-            XCTAssertTrue(try stepCondition(upload).contains("inputs.devices && !cancelled()"), "\(name) is uploaded only with the suite")
+
+        // The summary needs every job, reads every check from its job, and fails on a failed or cancelled check.
+        let summary = try XCTUnwrap(job["summary"])
+        XCTAssertTrue(summary.contains("    needs: [fast, build, screenshots, tests, lobby]\n"))
+        XCTAssertTrue(summary.contains("    runs-on: ubuntu-latest\n"), "the summary takes no macOS runner")
+        let reported: [(job: String, key: String, step: String)] = [
+            ("fast", "kit", "kit"), ("build", "build", "build"), ("screenshots", "shots_light", "report"),
+            ("screenshots", "shots_dark", "report"), ("lobby", "unit", "report"), ("tests", "walk", "report"),
+            ("tests", "flows", "report"), ("lobby", "lobby", "report"), ("lobby", "tabs_older", "report"),
+            ("fast", "package", "package"),
+        ]
+        let rows = try matches(#"(?m)^          CHECK_(\d+): "([^|"]+)\|\$\{\{ needs\.(\w+)\.outputs\.(\w+) \|\| needs\.(\w+)\.result \}\}"$"#, in: summary)
+        XCTAssertEqual(rows.map { [$0[3], $0[4]] }, reported.map { [$0.job, $0.key] }, "the summary's checks, in order")
+        XCTAssertEqual(rows.map(\.[1]), (1...reported.count).map(String.init))
+        XCTAssertEqual(rows.map(\.[2]), ["MossgroveKit tests", "Build for testing", "Screenshots, light", "Screenshots, dark", "Unit tests",
+                                        "Id walk", "Flows", "Lobby", "Tabs on an older iOS", "Simulator app zip"])
+        for row in rows {
+            XCTAssertEqual(row[3], row[5], "a check read from one job and its result from another")
         }
-        let zip = try XCTUnwrap(steps.first { $0.contains("name: mossgrove-ios-simulator\n") })
-        XCTAssertFalse(try stepCondition(zip).contains("inputs.devices"), "the zip is uploaded on every run")
-        XCTAssertTrue(steps.contains { $0.contains("VERSION: ${{ inputs.version }}") && $0.contains("package-simulator-app.sh \"$VERSION\"") })
+        for (owner, key, step) in reported {
+            let text = try XCTUnwrap(job[owner])
+            let outcome = step == "report" ? "${{ steps.report.outputs.\(key) }}" : "${{ steps.\(key).outcome }}"
+            XCTAssertTrue(text.contains("      \(key): \(outcome)\n"), "\(owner) does not hand \(key) to the summary")
+            if step == "report" {
+                XCTAssertTrue(text.contains("      \(key)_tests: ${{ steps.report.outputs.\(key)_tests }}\n"))
+                XCTAssertTrue(summary.contains(": ${{ needs.\(owner).outputs.\(key)_tests }}\n"), "the summary drops \(key)'s failing tests")
+            }
+        }
+        for owner in ["fast", "build", "screenshots", "tests", "lobby"] {
+            XCTAssertTrue(summary.contains("|${{ needs.\(owner).result }}\"\n"), "the summary does not read \(owner)'s result")
+        }
+        let script = try Repo.text("scripts/ci-test-summary.py")
+        XCTAssertNotNil(script.range(of: "bad = (\"failure\", \"cancelled\")"), "a cancelled check must fail the run")
+        XCTAssertNotNil(script.range(of: "mark.get(outcome, '⏭️')"), "a skipped check is shown as skipped")
+        XCTAssertNotNil(script.range(of: "if outcome == \"skipped\" and simulator and simulator != \"success\":\n            outcome = \"failure\""),
+                        "a check skipped for want of its simulator is a failure")
+
+        // The artifacts the run has always had, with their names: the zip from fast on every run; the screenshots and
+        // every result bundle put back together by the summary from each job's part.
+        let fast = try XCTUnwrap(job["fast"])
+        XCTAssertTrue(fast.contains("          name: mossgrove-ios-simulator\n          path: dist/\n"))
+        XCTAssertTrue(summary.contains("uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2\n"
+                                       + "        with:\n          name: screenshots\n          pattern: screenshots-*\n          retention-days: 30\n"))
+        XCTAssertTrue(summary.contains("uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2\n"
+                                       + "        with:\n          name: test-results\n          pattern: test-results-*\n          retention-days: 7\n"))
+        XCTAssertNil(summary.range(of: "delete-merged"), "a re-run of one check merges again with the others' parts")
+        XCTAssertTrue(try XCTUnwrap(job["screenshots"]).contains("          name: screenshots-${{ matrix.theme }}\n          path: out/screenshots/\n"))
+        for (owner, part) in [("screenshots", "test-results-screenshots-${{ matrix.theme }}"), ("tests", "test-results-${{ matrix.bundle }}"),
+                              ("lobby", "test-results-lobby")] {
+            XCTAssertTrue(try XCTUnwrap(job[owner]).contains("          name: \(part)\n          path: build/results/\n"), "\(owner)'s result bundles")
+        }
+
+        // Five macOS jobs at most at once, a free account's limit: fast and build, then the four matrix jobs (and fast,
+        // if it is still running), then lobby, which waits for fast.
+        XCTAssertEqual(jobs.filter { $0.text.contains("    runs-on: macos-latest\n") }.map(\.id), ["fast", "build", "screenshots", "tests", "lobby"])
+        XCTAssertTrue(try XCTUnwrap(job["lobby"]).contains("    needs: [build, fast]\n"))
+        XCTAssertTrue(try jobCondition(XCTUnwrap(job["lobby"])).contains("!cancelled() && needs.build.result == 'success'"),
+                      "lobby runs whatever fast found")
     }
 
     /// AMENDED (new with the CI diet): a push to main or a pull request runs the fast checks, unless it changed only

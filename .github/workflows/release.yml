@@ -22,6 +22,9 @@ jobs:
       version: ${{ github.ref_name }}
       devices: true
 
+  # `needs: ci` waits for every job of ci.yml, its summary last, and the summary fails when any check failed or was
+  # cancelled: a red or cancelled check publishes nothing. "Re-run failed jobs" runs the failed checks again, then
+  # the summary and this job, which depend on them, with ci.yml from the commit of the run's first attempt.
   github-release:
     needs: ci
     runs-on: ubuntu-latest

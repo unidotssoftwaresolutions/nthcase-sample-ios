@@ -277,11 +277,14 @@ vectors, and the launcher mark becomes the app icon. `art/` itself is never chan
 
 A push to `main` or a pull request runs the fast checks on `macos-latest`: `swift test` and the zipped simulator app,
 in about 4 minutes, with no simulator. A push that changes only `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
-`LICENSE`, `NOTICE` or `docs/screenshots/` starts nothing. The device suite runs on a simulator made for the run (the
-screenshots, `MossgroveTests`, the id walk, the flows, the Lobby and the tabs on an older iOS, about an hour) on "Run
-workflow", at 03:17 UTC on the 1st of each month, and before every release: a `v*` tag publishes only when the fast checks and the
-suite are green. To start the suite by hand, open Actions → build → Run workflow on `main`, or run
-`gh workflow run build.yml --ref main`. The jobs are in [.github/workflows/ci.yml](.github/workflows/ci.yml).
+`LICENSE`, `NOTICE` or `docs/screenshots/` starts nothing. The device suite (the screenshots, `MossgroveTests`, the id
+walk, the flows, the Lobby and the tabs on an older iOS) runs on "Run workflow", at 03:17 UTC on the 1st of each month,
+and before every release: a `v*` tag publishes only when the fast checks and the suite are green. The app and its tests
+are built once; then each check runs in a job of its own, on a simulator made for that job, side by side, in about
+35 minutes. The last job, "Every check", lists every check and every failing test. When one check fails, **Re-run
+failed jobs** runs that check again (and the list), not the whole suite. To start the suite by hand, open Actions →
+build → Run workflow on `main`, or run `gh workflow run build.yml --ref main`. The jobs are in
+[.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## Licence
 
