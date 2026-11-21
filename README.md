@@ -51,8 +51,12 @@ unzip mossgrove-ios-v1.1.0-simulator.zip
 xcrun simctl install <udid> Mossgrove.app
 ```
 
-There is no `.ipa`: a build for a real iPhone needs your own signing team. Open the project in Xcode, set a team under
-Signing & Capabilities, and run it on your phone.
+There is no `.ipa` in a release: a build for a real iPhone needs your own signing team. Open the project in Xcode, set a
+team under Signing & Capabilities, and run it on your phone.
+
+For a device farm that re-signs builds for its own phones, `scripts/build-device-ipa.sh` builds
+`dist/mossgrove-ios-device.ipa` (Release, arm64, iOS 17 or later) and its SHA-256. It is signed ad hoc, with no team, no
+profile and no entitlements, so it does not install on a phone as it is: the farm signs it for the phone it runs on.
 
 ## Build
 
@@ -265,8 +269,8 @@ MossgroveKit/               the logic and its tests (swift test)
 MossgroveTests/             unit tests inside the app
 MossgroveUITests/           the id walk, the scenario flows, the Lobby, the screenshots
 Config/Info.plist           the URL scheme
-scripts/                    make-assets.swift, package-simulator-app.sh, ci-simulator.sh, ci-screenshots.sh,
-                            ci-test-summary.py, ax-shapes.swift, slider-replay.sh and .swift
+scripts/                    make-assets.swift, package-simulator-app.sh, build-device-ipa.sh, ci-simulator.sh,
+                            ci-screenshots.sh, ci-test-summary.py, ax-shapes.swift, slider-replay.sh and .swift
 art/  nthcase/  docs/screenshots/
 ```
 
