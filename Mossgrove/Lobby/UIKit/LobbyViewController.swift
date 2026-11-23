@@ -821,10 +821,12 @@ extension LobbyViewController: UITableViewDataSource, UITableViewDelegate {
 }
 
 /// The quick sheet: a view controller in UIKit's own sheet, at the medium detent. A drag down or a tap outside closes
-/// it, with no log line.
-private final class QuickSheetController: UIViewController {
+/// it, with no log line. Its title and four buttons stay put; under them, More like this (1.2) is a `UITableView`
+/// pinned to the sheet's foot, so its 20 lines run past the foot and come only by scrolling inside the sheet.
+private final class QuickSheetController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let sheetTitle: String
     private let tapped: (String) -> Void
+    private let more = UITableView(frame: .zero, style: .plain)
 
     init(title: String, tapped: @escaping (String) -> Void) {
         sheetTitle = title
@@ -858,13 +860,57 @@ private final class QuickSheetController: UIViewController {
             button.addAction(UIAction { [weak self] _ in self?.tapped(label) }, for: .touchUpInside)
             stack.addArrangedSubview(button)
         }
+        let heading = lobbyLabel(.subheadline, weight: .semibold, color: Palette.primary)
+        heading.text = Lobby.moreLikeThis
+        heading.accessibilityTraits = .header
+        if let last = stack.arrangedSubviews.last { stack.setCustomSpacing(8, after: last) }
+        stack.addArrangedSubview(heading)
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
+
+        more.dataSource = self
+        more.delegate = self
+        more.register(UITableViewCell.self, forCellReuseIdentifier: Self.lineReuse)
+        more.rowHeight = Lobby.sheetLineHeight
+        more.backgroundColor = .clear
+        more.separatorColor = Palette.outlineVariant
+        more.separatorInset = .zero
+        more.accessibilityIdentifier = TestIds.lobbySheetMore
+        more.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(more)
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            more.topAnchor.constraint(equalTo: stack.bottomAnchor, constant: 4),
+            more.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            more.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            more.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+    }
+
+    private static let lineReuse = "more"
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { Lobby.sheetMoreLines }
+
+    func tableView(_ tableView: UITableView, cellForRowAt path: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: Self.lineReuse, for: path)
+        let n = path.row + 1
+        let line = Lobby.sheetMoreLine(title: sheetTitle, n)
+        cell.backgroundColor = .clear
+        cell.textLabel?.text = line
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
+        cell.textLabel?.textColor = Palette.onSurface
+        cell.accessibilityLabel = line
+        cell.accessibilityIdentifier = TestIds.lobbySheetMoreRow(n)
+        return cell
+    }
+
+    /// A line is touched as a button is: the table's own tap selects it, which is logged and closes the sheet.
+    func tableView(_ tableView: UITableView, didSelectRowAt path: IndexPath) {
+        tableView.deselectRow(at: path, animated: false)
+        tapped(Lobby.sheetMoreLine(title: sheetTitle, path.row + 1))
     }
 }
 

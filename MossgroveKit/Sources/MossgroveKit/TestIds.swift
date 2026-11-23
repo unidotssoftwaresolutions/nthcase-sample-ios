@@ -79,6 +79,7 @@ public enum TestIds {
     public static let labGiftCards = "lab_gift_cards"
     public static let labLobby = "lab_lobby"
     public static let labLobbyViews = "lab_lobby_views"
+    public static let labFeed = "lab_feed"
 
     // lobby (1.1): both builds, SwiftUI and UIKit, carry every one
     public static let lobbyScreen = "lobby_screen"
@@ -125,6 +126,15 @@ public enum TestIds {
     public static let lobbySheetPreview = "lobby_sheet_preview"
     public static let lobbySheetSaved = "lobby_sheet_saved"
     public static let lobbySheetRate = "lobby_sheet_rate"
+    // 1.2: the quick sheet's More like this, in both builds
+    public static let lobbySheetMore = "lobby_sheet_more"
+    public static func lobbySheetMoreRow(_ n: Int) -> String { "lobby_sheet_more_row_\(n)" }
+
+    // feed (1.2)
+    public static let feedScreen = "feed_screen"
+    public static let feedList = "feed_list"
+    public static func feedRow(_ n: Int) -> String { "feed_row_\(n)" }
+    public static let feedLoading = "feed_loading"
 
     // form
     public static let formScreen = "form_screen"

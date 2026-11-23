@@ -1,7 +1,36 @@
-# Mossgrove: the NthCase sample apps (spec 1.1)
+# Mossgrove: the NthCase sample apps (spec 1.2)
 
-**Spec version 1.1 · 2026-11-18.** This one document defines all five NthCase sample apps. Each repository carries
+**Spec version 1.2 · 2026-11-23.** This one document defines all five NthCase sample apps. Each repository carries
 a copy of it, and the version line says which spec that repository builds.
+
+## Changes in 1.2
+
+Spec 1.2 adds two things to scroll, and changes nothing that 1.1 defined, except the version line in Settings and the
+quick sheet's height on Android, which is now about half the screen, as iOS's medium detent always was.
+
+- **Why.** NthCase measures its phone verbs against Maestro's on a matrix of scroll cases, on every device it runs on.
+  Mossgrove 1.1 had no sheet whose content scrolls (the quick sheet held four buttons) and no list that never ends, so
+  two of the cases had nothing to run on: a scroll inside a sheet, which a scroll made at the screen's centre can miss,
+  and a scroll until something that an endless list never shows, which can only stop when its time runs out.
+- **§5, Lobby › the quick sheet:** under its four buttons, **More like this** (`lobby_sheet_more`): the sheet's own
+  scroller, with 20 lines that run past the sheet's foot. A tap on a line is logged as a tap on a button is.
+- **§5, Lab and Feed:** the Lab has a row after the Lobby's, **Feed** (`lab_feed`). The Feed screen is new: a list
+  (`feed_list`) of 20 rows that brings 20 more, after a spinner row that shows for 1 s, each time its third row from
+  the end shows. It never ends.
+- **§5, Settings:** the version line reads "Mossgrove 1.2.0 · spec 1.2 · a sample app for NthCase".
+- **§6:** the new texts.
+- **§7:** 7 ids (193 → 200), and `{n}` also counts the sheet's lines and the Feed's rows.
+- **§8:** the verbs they exercise. **§9:** no new scenario. **§12:** which scroller each framework uses for them.
+  **§13:** a scroll that cannot reach an end.
+- **Android and iOS build 1.2 first.** Flutter, React Native and Ionic build it in their next round.
+
+| Repository | Framework | Status |
+| --- | --- | --- |
+| `nthcase-sample-android` | Kotlin + Jetpack Compose, settings in classic XML Views | built against spec 1.2 |
+| `nthcase-sample-ios` | SwiftUI, settings in UIKit | built against spec 1.2 |
+| `nthcase-sample-flutter` | Flutter (Android + iOS) | built against spec 1.1; More like this and the Feed to build |
+| `nthcase-sample-react-native` | React Native with Expo (Android + iOS) | built against spec 1.1; More like this and the Feed to build |
+| `nthcase-sample-ionic` | Ionic React + Capacitor (Android + iOS), a WebView app | built against spec 1.1; More like this and the Feed to build |
 
 ## Changes in 1.1
 
@@ -30,14 +59,6 @@ Settings.
   and 20. The Android round had reproduced the fault with the pager, a banner taking the swipe. In the run the swipe
   hit a game tile, so the first scrollable there was a row of tiles that no vertical scroller enclosed. The Top 10 row
   is that row. 1.1 was not published before this change, so it is still 1.1.
-
-| Repository | Framework | Status |
-| --- | --- | --- |
-| `nthcase-sample-android` | Kotlin + Jetpack Compose, settings in classic XML Views | built against spec 1.1 |
-| `nthcase-sample-ios` | SwiftUI, settings in UIKit | built against spec 1.0; the Lobby to build |
-| `nthcase-sample-flutter` | Flutter (Android + iOS) | built against spec 1.0; the Lobby to build |
-| `nthcase-sample-react-native` | React Native with Expo (Android + iOS) | built against spec 1.0; the Lobby to build |
-| `nthcase-sample-ionic` | Ionic React + Capacitor (Android + iOS), a WebView app | built against spec 1.0; the Lobby to build |
 
 The apps have two jobs. They are a **showcase**: a developer evaluating NthCase clones one, builds it, and tests it in
 minutes. And they are NthCase's **regression lab**: every verb NthCase records and replays, and the hard cases real
@@ -221,7 +242,8 @@ Then six rows, each a title and one line of what it covers: **Join the club** (`
 **Gift cards** (`lab_gift_cards`). Spec 1.1 adds a seventh, **Lobby** (`lab_lobby`), "A pager, rows, a grid, a
 list in the list, a board and a late bar item, with a touch log". Android and iOS add an eighth (`lab_lobby_views`),
 the same Lobby built with the classic view toolkit: **Lobby (Views)**, "The same Lobby, built with Android Views", and
-**Lobby (UIKit)**, "The same Lobby, built with UIKit".
+**Lobby (UIKit)**, "The same Lobby, built with UIKit". Spec 1.2 adds a row after the Lobby's, **Feed** (`lab_feed`),
+"A list that never ends, 20 rows at a time".
 
 **Join the club** (`form_screen`), the form. "Members hear about new drawers first. Every field is required except the
 newsletter." The fields, in order:
@@ -368,11 +390,13 @@ double-tap time has passed, so a double tap is one line, "Double-tapped: …", n
 | board cell | "M18" | "(board)" | logged only | logged only | logged only |
 | bar item | its label | "(bar)" | as above | — | — |
 | quick sheet button | its label | "(quick sheet, <title>)" | as below | — | — |
+| More like this line n (1.2) | its text | "(quick sheet, <title>)" | closes the sheet | — | — |
 
 So a line reads "Tapped: Bedside Lamp (row 3, tile 15)", "Long-pressed: Pocket Notebook (top row, tile 2)",
 "Double-tapped: M18 (board)", "Tapped: Line 7 (inner
-list)" or "Tapped: Saved (quick sheet, Bedside Lamp)". Only taps on bar items and on the sheet's buttons are logged
-for them; a long press or a double tap on them does whatever the platform does.
+list)", "Tapped: Saved (quick sheet, Bedside Lamp)" or "Tapped: Like Bedside Lamp · 7 of 20 (quick sheet, Bedside
+Lamp)". Only taps on bar items and on the sheet's buttons and lines are logged for them; a long press or a double tap
+on them does whatever the platform does.
 
 **Panels.** The detail, the promo and the Saved panel take the place of the pager, the Top 10 row and the page. The
 touch log, the delay choice and the bar stay. Back (the top bar's or the system's) or the panel's **Back to the lobby**
@@ -390,6 +414,15 @@ over the Lobby. Its title (`lobby_sheet_title`) is the tile's or banner's name. 
 opens the detail or the promo. Back, a tap outside the sheet or a drag down closes it, with no log line. The button
 says "Saved" on purpose, the same word as the bar's late item: a heal that looks at this sheet instead of the Lobby
 finds a "Saved" here, and the log shows it.
+
+**More like this** (`lobby_sheet_more`, new in 1.2): under the four buttons, the heading "More like this", then the
+sheet's own vertical scroller, which fills the sheet below it and carries the id. In it, 20 lines
+(`lobby_sheet_more_row_{n}`), each reading "Like <title> · <n> of 20": "Like Bedside Lamp · 1 of 20" to "Like
+Bedside Lamp · 20 of 20". The sheet is about half the screen high: iOS's medium detent, and on Android a sheet whose
+content is half the window high, opened whole. It never grows to show more, so the lines run past its foot: a phone
+shows the first few, and the rest come only by scrolling inside the sheet, while the Lobby under it stays where it
+is. A line is touched as a button is: a tap is logged, "Tapped: Like Bedside Lamp · 7 of 20 (quick sheet, Bedside
+Lamp)", and closes the sheet, opening nothing. Scrolling the lines, like any scroll, logs nothing.
 
 **Saved appears late.** Until the chosen delay has passed, the bar's Saved is **absent from the tree**: not hidden,
 not disabled, not zero-sized, and the bar has three items. The count starts when the Lobby opens, and starts again
@@ -422,6 +455,18 @@ next step's start. On a phone t is a second or more. Saved then arrives (delay �
 If a step sets a longer budget, its half-budget moves with it, so these numbers are for a step with the default
 budget, which is what the scenarios' plain steps get.
 
+**Feed** (`feed_screen`, new in 1.2), a list that never ends. The top bar says "Feed" and has Back. Under it the list
+(`feed_list`) fills the screen with rows (`feed_row_{n}`). Each row is one accessible element with its id, reads "Feed
+row <n>", and is 56 dp / pt high (more with a larger font); it has nothing else to read and does nothing when touched.
+The list opens with rows 1–20. When the third row from the end of what has come shows (any part of it inside the
+list's frame: row 18 at first), a spinner row (`feed_loading`, "Loading more rows…") comes after the last row. 1 s
+later it goes, and 20 more rows come in its place: rows 21–40, then, once row 38 shows, rows 41–60, and so on. While
+one load runs no other starts; when it ends, the next starts at once if the new third row from the end already shows.
+The spinner row comes below the screen's foot, out of sight, unless the list is scrolled to its end within that
+second: a quick scroll sees it, a slower one finds the next rows already there. Nothing ends the Feed: no row reads
+"End of the feed", and a scroll that waits for one waits until its own time runs out. Nothing on the Feed is logged,
+and every visit starts again with rows 1–20.
+
 **Settings** (`settings_screen`), built with the platform's classic toolkit: **XML Views in a Fragment** on Android,
 **UIKit** on iOS. Flutter, React Native and Ionic build it like their other screens; §12 says how. In order:
 
@@ -441,8 +486,9 @@ budget, which is what the scenarios' plain steps get.
   signed in. This can't be undone.", whose buttons are **Cancel** (`settings_reset_cancel`) and **Empty**
   (`settings_reset_confirm`). Its own buttons carry the ids: a stock dialog's buttons would not. Empty then shows the
   snackbar "Cart and orders emptied".
-- The version line (`settings_version`): "Mossgrove 1.1.0 · spec 1.1 · a sample app for NthCase" (1.0 said
-  "Mossgrove 1.0.0 · spec 1.0 · a sample app for NthCase"; an app built against 1.0 keeps that line).
+- The version line (`settings_version`): "Mossgrove 1.2.0 · spec 1.2 · a sample app for NthCase" (1.1 said
+  "Mossgrove 1.1.0 · spec 1.1 · a sample app for NthCase", and 1.0 "Mossgrove 1.0.0 · spec 1.0 · a sample app for
+  NthCase"; an app keeps the line of the spec it is built against).
 
 **Modal and snackbar.** The checkout dialog (`dialog`, `dialog_title`, `dialog_text`, `dialog_confirm`,
 `dialog_dismiss`) is the app's modal; the reset dialog is the classic toolkit's. Snackbars (`snackbar`,
@@ -472,7 +518,10 @@ These texts are fixed. An app may not reword them, because the scenarios' checks
 | Orders | "Fetching your orders…", "Orders didn't load", "No orders yet", "Start shopping", "Order <n>" |
 | Gift cards | "Check a balance", "Card code", "Check balance", "Balance: $25.00", "We don't recognise that code", "Choose", "Choose a design", "A $<n> card with the <Fern/Stone> design" |
 | Lab (1.1) | "Lobby", "Lobby (Views)" (Android), "Lobby (UIKit)" (iOS) |
+| Lab (1.2) | "Feed", "A list that never ends, 20 rows at a time" |
 | Lobby (1.1) | "Touch log", "Nothing touched", "Touches: <n>", "Reset", "Tapped: <what> (<where>)", "Long-pressed: <what> (<where>)", "Double-tapped: <what> (<where>)", "Saved appears after", "0 s", "3 s", "6 s", "12 s", "20 s", the five banner titles, "A test banner", "Banner <n> of 5", "Auto-advance", "Show the pager", "Top 10: tiles <a>–<b> of 10", "Top 10: tile <a> of 10", "Top 10, tile <m>", the twelve chip labels, "Row <n>: tiles <a>–<b> of 20", "Row <n>: tile <a> of 20", "Grid", "Inner list", "Line <n> of 30", "Board: top-left <cell>", "A1" to "Z26", "End of the lobby", "A test bench: nothing here is for sale.", "Home", "Live", "Saved", "Offers", "Saved: nothing yet", "Row <n>, tile <m>", "Back to the lobby", "A test banner. Nothing here is for sale.", "Open", "Preview", "Rate" |
+| Lobby (1.2) | "More like this", "Like <title> · <n> of 20" |
+| Feed (1.2) | "Feed", "Feed row <n>", "Loading more rows…" |
 | Settings | every label in §5, "Notification sent", "Cart and orders emptied" |
 
 ## 7. Test ids
@@ -482,7 +531,8 @@ repository's tests check their app against it. Ids are `snake_case`, `^[a-z][a-z
 name. `{id}` is an item number (1–40), `{n}` a slot or order number, `{key}` an aisle key. `web_*` ids are HTML `id` and
 `data-testid` attributes in the bundled page. On the Lobby (1.1), `{n}` is a banner (1–5), chip (1–12), row (1–4), grid
 cell (1–12) or inner-list line (1–30), `{m}` a tile in its row (1–20, or 1–10 in the Top 10 row), `{s}` a delay in
-seconds (0, 3, 6, 12, 20), and `{col}{row}` a board cell, letter then number (`a1` to `z26`).
+seconds (0, 3, 6, 12, 20), and `{col}{row}` a board cell, letter then number (`a1` to `z26`). In 1.2, `{n}` is
+also a line of the quick sheet's More like this (1–20) and a row of the Feed (from 1, with no last row).
 
 **An id must sit on an element that is its own accessibility node.** Platforms fold children into a parent's node: a
 clickable row, a Material navigation item, a text field's supporting text, a SwiftUI `.accessibilityElement(children:
@@ -508,7 +558,8 @@ Flutter and React Native it is the framework's id, `webview`.
 
 ### The list
 
-193 ids: 1.0's 147 and the Lobby's 46. The gift-cards screen has none, by design. `lab_lobby_views` exists only in the
+200 ids: 1.0's 147, the Lobby's 46 (1.1), and 1.2's 7 for More like this and the Feed. The gift-cards screen has
+none, by design. `lab_lobby_views` exists only in the
 apps that build the Lobby twice (Android and iOS). The classic-toolkit Lobby carries every other Lobby id unchanged;
 on Android its ids are view ids, so Appium reads them as `com.nthcase.sample:id/lobby_pager`.
 
@@ -580,6 +631,7 @@ on Android its ids are view ids, so Appium reads them as `com.nthcase.sample:id/
 | `lab_gift_cards` | lab | Opens Gift cards (no ids) | shown |
 | `lab_lobby` | lab | Opens the Lobby (1.1) | shown |
 | `lab_lobby_views` | lab | Opens the Lobby built with the classic view toolkit (1.1) | Android and iOS only |
+| `lab_feed` | lab | Opens the Feed (1.2) | shown |
 | `lobby_screen` | lobby | Screen root | shown |
 | `lobby_touch_log` | lobby | Touch log: "Nothing touched", or the last touches, newest first | shown |
 | `lobby_touch_count` | lobby | Touches: N, since the last reset | shown |
@@ -624,6 +676,12 @@ on Android its ids are view ids, so Appium reads them as `com.nthcase.sample:id/
 | `lobby_sheet_preview` | lobby | Quick sheet: Preview | quick sheet |
 | `lobby_sheet_saved` | lobby | Quick sheet: Saved | quick sheet |
 | `lobby_sheet_rate` | lobby | Quick sheet: Rate | quick sheet |
+| `lobby_sheet_more` | lobby | Quick sheet: More like this, the sheet's own vertical scroller of 20 lines (1.2) | quick sheet |
+| `lobby_sheet_more_row_{n}` | lobby | Quick sheet: More like this, line 1–20, "Like <title> · n of 20" (1.2) | scrolled into view in the sheet |
+| `feed_screen` | feed | Screen root (1.2) | shown |
+| `feed_list` | feed | The list: 20 rows, then 20 more each time its third row from the end shows | shown |
+| `feed_row_{n}` | feed | Row n, "Feed row n", from 1, with no last row | scrolled into view |
+| `feed_loading` | feed | Spinner row after the last row, 1 s, while the next 20 rows come | a load running, the list at its end |
 | `form_screen` | form | Screen root | shown |
 | `form_name` | form | Full name (text) | shown |
 | `form_name_error` | form | Name error | after Join, invalid |
@@ -753,13 +811,17 @@ scenario column names the file in `nthcase/scenarios/`.
 | `waitFor`, 1.1 | the bar's late Saved, by the tap's own wait | 16–20 |
 | `assert` · `textContains` / `notTextContains`, 1.1 | the touch log after every scroll, swipe and tap | 12–20 |
 | `assert` · `notExists`, 1.1 | Saved absent from the bar before its delay; the pager absent with Show the pager off | 16–20 |
+| `scroll` (to an element), 1.2 | the quick sheet's More like this to its line 20, inside the sheet, with the Lobby under it still; the Feed to row 60, through two loads | — (§9) |
+| `scroll` until an element that never comes, 1.2 | the Feed until "End of the feed": it has no end, so the scroll can only stop at its step's time | — (§9) |
+| `tap`, 1.2 | a More like this line, logged as a sheet button is | — (§9) |
+| `waitFor`, 1.2 | the Feed's spinner row, 1 s, then the next 20 rows | — (§9) |
 
 The **hard cases** are covered as follows. The slow load and the failed load with retry are covered in 08. The modal
 (03) and the system permission prompt (09) each have a scenario. The web view is 07, and the screen with no ids, found
 by text and position, is 10. The long list sits behind a search (02), and the classic-toolkit screen with its own
 dialog is 09. Two controls share one text on the gift-cards screen. Spec 1.1 adds the screen of many scrollers, a
 horizontal one first in the tree (a pager, or with the pager off a row of tiles), and a control that appears late
-(12–20).
+(12–20). Spec 1.2 adds a sheet whose content scrolls and a list that never ends.
 
 ## 9. Scenarios
 
@@ -774,6 +836,9 @@ run `00ec77f5` and are **expected to fail on today's NthCase** on some platforms
 scrollable is the pager, so the victim is a banner. 19 turns the pager off, so the first scrollable is the Top 10 row
 and the victim is a tile, as in the run. 18 is 16 and 20 is 19 on the classic-toolkit Lobby, so only Android and iOS run
 them. Any other Lobby scenario can be run on that Lobby by tapping `lab_lobby_views` instead of `lab_lobby`.
+
+1.2 adds no scenario. More like this and the Feed are there for NthCase's own scroll cases (a scroll inside a sheet,
+and a scroll on an endless list), which name their ids; a scenario of your own can use them as the Lobby's do.
 
 ## 10. Design
 
@@ -942,6 +1007,34 @@ and the Top 10 row is the first scrollable; and Saved is absent before its delay
   first touch). It keeps no storage, so the delay choice and Show the pager live until the page reloads; `?saved=12` in
   the address chooses a delay at load, and `?pager=off` turns the pager off. There is no classic-toolkit Lobby.
 
+### More like this and the Feed, per framework (1.2)
+
+Both are real scrollers of the platform's own kind, and lazy where the platform's lists are, so a line or a row out of
+the scroller's sight may be in no tree. Every line, every row and the spinner row is its own accessibility node with its
+own id. The sheet keeps its title and buttons fixed above More like this; only the lines scroll. Each app's README says
+which widget it uses, and its tests prove, in the tree Appium reads, that the sheet's lines scroll inside it while the
+Lobby under it does not move, and that the Feed brings 20 rows at a time, each load after its spinner row.
+
+| Part | Android, Compose | Android, Views (`lab_lobby_views`) |
+| --- | --- | --- |
+| More like this | `LazyColumn` under the buttons in the `ModalBottomSheet`; the sheet's content is half the window high and the sheet skips its partly open state, so it opens whole at that height and never grows | `RecyclerView` under the buttons in the `BottomSheetDialog`; the content half the window high, the sheet expanded |
+| Feed | `LazyColumn`; a load starts from the rows its layout shows | — (the Feed is built once, in Compose) |
+
+- **iOS, SwiftUI:** More like this a vertical `ScrollView` with a `LazyVStack` under the buttons, filling the rest of the
+  medium detent; the Feed a `ScrollView` with a `LazyVStack`, a load started from the scroll offset, since every row is
+  the same height.
+- **iOS, UIKit (`lab_lobby_views`):** More like this a `UITableView` under the buttons, pinned to the sheet's foot. The
+  Feed is built once, in SwiftUI.
+- **Flutter:** More like this a `ListView` in the `showModalBottomSheet`, whose content is half the screen high; the
+  Feed a `ListView.builder` that starts a load when the third row from the end is laid out inside the list's view.
+- **React Native:** More like this a `FlatList` under the buttons in the sheet's `Modal`, half the screen high; the
+  Feed a `FlatList` that starts a load from `onViewableItemsChanged` with any part of a row counting, not from
+  `onEndReached`, whose threshold is a distance.
+- **Ionic:** More like this a `div` with `overflow-y: auto` under the buttons in the `ion-modal`, at a breakpoint of
+  0.5; the Feed a list in `ion-content` whose third row from the end is watched by an `IntersectionObserver`, not
+  `ion-infinite-scroll`, whose threshold is a distance.
+- **The web lab** has neither in 1.2.
+
 ## 13. Known gaps
 
 What NthCase cannot do yet, as read from GuruAI's code on 2026-11-03. The apps are ready for each:
@@ -962,3 +1055,6 @@ What NthCase cannot do yet, as read from GuruAI's code on 2026-11-03. The apps a
   On the Lobby the first scrollable is the horizontal pager, or the Top 10 row when the pager is off, so such a swipe
   can reach a banner or a tile as a tap or a long press. Scenarios 12–20 show where it does; GuruAI's fix waits for
   those results.
+- **A scroll that cannot reach an end (1.2).** A scroll until something the Feed never shows has no end of the list to
+  stop at: each scroll brings more rows. It can only stop when its step's time runs out, and the Feed is there to show
+  that it does.

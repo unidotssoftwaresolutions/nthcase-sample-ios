@@ -377,18 +377,19 @@ final class CICensusTests: XCTestCase {
         XCTAssertGreaterThan(named, 300)
     }
 
-    /// The 31 screenshots (24, and the Lobby's seven in 1.1, under the Android app's names): ScreenshotTests makes them
-    /// under the names the CI script checks, one each, 01 to 31.
+    /// The 32 screenshots (24, the Lobby's seven in 1.1, and the Feed in 1.2, under the Android app's names):
+    /// ScreenshotTests makes them under the names the CI script checks, one each, 01 to 32.
     func testTheScreenshotNamesAgree() throws {
         let tests = try matches(#"shot\("(\d\d-[a-z-]+)""#, in: try Repo.text("MossgroveUITests/ScreenshotTests.swift")).map { $0[1] }
         let script = try Repo.text("scripts/ci-screenshots.sh")
         let block = try XCTUnwrap(try matches(#"expected="([^"]*)""#, in: script).first?[1])
         let expected = block.split(whereSeparator: \.isWhitespace).map(String.init)
-        XCTAssertEqual(tests.count, 31)
-        XCTAssertEqual(Set(tests).count, 31, "a screenshot name twice")
+        // AMENDED (1.2): 32-feed
+        XCTAssertEqual(tests.count, 32)
+        XCTAssertEqual(Set(tests).count, 32, "a screenshot name twice")
         XCTAssertEqual(Set(tests), Set(expected))
-        XCTAssertEqual(expected.count, 31)
-        XCTAssertEqual(Set(expected.map { String($0.prefix(2)) }), Set((1...31).map { String(format: "%02d", $0) }))
+        XCTAssertEqual(expected.count, 32)
+        XCTAssertEqual(Set(expected.map { String($0.prefix(2)) }), Set((1...32).map { String(format: "%02d", $0) }))
     }
 
     // MARK: The workflows

@@ -7,7 +7,7 @@ final class SharedSourcesTests: XCTestCase {
     /// SPEC.md §3's table is the catalogue, word for word.
     func testCatalogueIsSpecTable() throws {
         let spec = try Repo.text("SPEC.md")
-        XCTAssertTrue(spec.hasPrefix("# Mossgrove: the NthCase sample apps (spec 1.1)"))
+        XCTAssertTrue(spec.hasPrefix("# Mossgrove: the NthCase sample apps (spec 1.2)"))
         let rows = spec.split(separator: "\n").filter { $0.range(of: #"^\| 0[0-4]\d \|"#, options: .regularExpression) != nil }
         XCTAssertEqual(rows.count, 40)
         for (row, item) in zip(rows, Catalog.items) {
@@ -32,7 +32,7 @@ final class SharedSourcesTests: XCTestCase {
             Texts.slotsLoading, Texts.slotsIntro, Texts.ordersLoading, Texts.ordersFailed, Texts.ordersFailedHelp,
             Texts.noOrders, Texts.noOrdersHelp, Texts.giftUnknown, Texts.notificationsNotAllowed, Texts.notificationsOn,
             Texts.testingHelp, Texts.slowLoading, Texts.failFirstLoad, Texts.resetTitle, Texts.resetBody, Texts.resetDone,
-            Texts.notificationSent, Texts.testNotificationTitle, Texts.version("1.1.0"),
+            Texts.notificationSent, Texts.testNotificationTitle, Texts.version("1.2.0"),
             FormRules.name, FormRules.email, FormRules.age, FormRules.password, FormRules.category, FormRules.date, FormRules.terms,
             GestureWords.doubleTapped, GestureWords.dropped, GestureWords.dropMissed, GestureWords.scrolledTo,
         ] {
@@ -50,7 +50,13 @@ final class SharedSourcesTests: XCTestCase {
             "Tapped: Bedside Lamp (row 3, tile 15)", "Long-pressed: Pocket Notebook (top row, tile 2)", "Double-tapped: M18 (board)",
             "Tapped: Saved (quick sheet, Bedside Lamp)", "Tapped: Saved (bar)", "\"Row 3, tile 15\" (\"Top 10, tile 2\"",
         ]
-        for text in lists + fixed + delays {
+        // 1.2's: the quick sheet's More like this and the Feed, as SPEC.md §5 and §6 write them
+        let twelve: [String] = [
+            "\"\(Lobby.moreLikeThis)\"", "Like <title> · <n> of 20", "\"Like Bedside Lamp · 1 of 20\"",
+            "Tapped: \(Lobby.sheetMoreLine(title: "Bedside Lamp", 7)) (quick sheet, Bedside Lamp)",
+            "\"\(Feed.title)\"", Feed.labLine, "Feed row <n>", Feed.loading, "Mossgrove 1.1.0 · spec 1.1 · a sample app for NthCase",
+        ]
+        for text in lists + fixed + delays + twelve {
             XCTAssertNotNil(spec.range(of: text), "SPEC.md does not say \"\(text)\"")
         }
         let scenarios = try FileManager.default.contentsOfDirectory(atPath: Repo.url("nthcase/scenarios").path).sorted()

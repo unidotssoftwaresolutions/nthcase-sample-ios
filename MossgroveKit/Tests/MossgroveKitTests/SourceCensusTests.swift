@@ -61,6 +61,8 @@ final class SourceCensusTests: XCTestCase {
         case "orders": return "Screens/OrdersView.swift"
         case "settings": return "Settings/SettingsViewController.swift"
         case "lobby": return "Lobby/"
+        // 1.2: the Feed is built once, in SwiftUI
+        case "feed": return "Screens/FeedView.swift"
         default: return "?"
         }
     }
@@ -108,15 +110,15 @@ final class SourceCensusTests: XCTestCase {
     /// TestIds.swift declares exactly the JSON's native ids: none missing, none extra, none twice.
     func testTestIdsAreExactlyTheJsonList() throws {
         let spec = try Repo.specIds()
-        XCTAssertEqual(spec.spec, "1.1")
+        XCTAssertEqual(spec.spec, "1.2")
         let native = spec.ids.map(\.id).filter { !$0.hasPrefix("web_") }
         XCTAssertEqual(native.count, Set(native).count, "the JSON lists an id twice")
         let declared = try testIdsSource()
         XCTAssertEqual(declared.count, Set(declared.values).count, "TestIds.swift declares an id twice")
         XCTAssertEqual(Set(declared.values), Set(native))
-        // 1.1: the Lobby's 46 (lab_lobby_views included: iOS builds the Lobby twice)
-        XCTAssertEqual(declared.count, 184)
-        XCTAssertEqual(spec.ids.count, 193)
+        // 1.1: the Lobby's 46 (lab_lobby_views included: iOS builds the Lobby twice); 1.2: More like this and the Feed, 7
+        XCTAssertEqual(declared.count, 191)
+        XCTAssertEqual(spec.ids.count, 200)
         let pattern = try NSRegularExpression(pattern: spec.pattern)
         for id in spec.ids.map(\.id) {
             // AMENDED (1.1): every placeholder, `{col}{row}` too, stands for a value

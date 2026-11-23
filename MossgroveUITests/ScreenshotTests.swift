@@ -6,9 +6,10 @@ import XCTest
 /// With `MOSSGROVE_SCREENSHOTS` set (CI passes `TEST_RUNNER_MOSSGROVE_SCREENSHOTS`), the pictures are written there as
 /// PNG files; they are always kept as attachments of the result bundle too.
 ///
-/// The 31 screens are eleven tests, each from a cold start, so a screen that fails costs only its own group: the run
-/// still makes every other picture. `scripts/ci-screenshots.sh` checks that all 31 files are there and names any
-/// that is not. 25–31 are the Lobby (1.1), in SwiftUI and in UIKit, with the pager on and off.
+/// The 32 screens are twelve tests, each from a cold start, so a screen that fails costs only its own group: the run
+/// still makes every other picture. `scripts/ci-screenshots.sh` checks that all 32 files are there and names any
+/// that is not. 25–31 are the Lobby (1.1), in SwiftUI and in UIKit, with the pager on and off; 27 shows the quick
+/// sheet's More like this (1.2); 32 is the Feed (1.2).
 final class ScreenshotTests: XCTestCase {
     private var app: XCUIApplication!
     private var folder: URL?
@@ -216,6 +217,15 @@ final class ScreenshotTests: XCTestCase {
         pagerOff()
         shot("31-lobby-views-no-pager")
         leaveLobby()
+    }
+
+    /// The Feed (1.2), as it opens: rows 1 to 20, the first of them on screen.
+    func test10Feed() {
+        app.signIn()
+        app.openLab("lab_feed")
+        wait("feed_list")
+        wait("feed_row_1")
+        shot("32-feed")
     }
 
     private func openLobby(_ bench: String) {

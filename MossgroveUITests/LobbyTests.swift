@@ -50,6 +50,11 @@ final class LobbyTests: XCTestCase {
     func testScrollAlongRowOneSwiftUI() { swipe(Self.swiftUI, across: "lobby_row_1", pagerOff: false, Self.along) }
     func testScrollAlongRowOneUIKit() { swipe(Self.uiKit, across: "lobby_row_1", pagerOff: false, Self.along) }
 
+    // MARK: The sheet that scrolls (1.2)
+
+    func testMoreLikeThisScrollsInsideTheSheetSwiftUI() { moreLikeThis(Self.swiftUI) }
+    func testMoreLikeThisScrollsInsideTheSheetUIKit() { moreLikeThis(Self.uiKit) }
+
     /// `mobile: scroll {direction: down}`, then `{direction: up}`: a vector of the scroller's whole height (distance 1.0).
     static let vertical: [(name: String, vector: (CGRect) -> CGVector)] = [
         ("down", { CGVector(dx: 0, dy: -$0.height) }),
@@ -166,6 +171,52 @@ final class LobbyTests: XCTestCase {
             add(shot)
             Thread.sleep(forTimeInterval: 0.25)
         }
+    }
+
+    /// The quick sheet's More like this (SPEC.md §5, 1.2), from a long press on the Top 10 row's tile 2, which shows at
+    /// once: the sheet opens at the medium detent with its first line in sight and its last one past its foot; drags
+    /// inside `lobby_sheet_more` bring line 20 whole into it; the sheet does not move and nothing is touched on the way;
+    /// the Lobby under the sheet is where it was; a tap on line 20 is logged as a button's and closes the sheet.
+    private func moreLikeThis(_ bench: String) {
+        let app = openLobby(bench)
+        let topRow = app.id("lobby_top_row_position").label
+        app.longPressWhenThere(app.id("lobby_top_row_tile_2"))
+        let more = app.id("lobby_sheet_more")
+        guard more.mustAppear("\(bench): the quick sheet has no More like this; lobby_sheet_more") else {
+            keepTree(app, "\(bench): no lobby_sheet_more")
+            return
+        }
+        app.id("lobby_sheet_more_row_1").mustShow("Like Pocket Notebook · 1 of 20", "\(bench): the sheet's first line")
+        let sheet = app.id("lobby_sheet").frame
+        let scroller = more.frame
+        let last = app.id("lobby_sheet_more_row_20")
+        let lastAtOpen = last.exists ? "in the tree at \(last.frame)" : "not in the tree"
+        XCTAssertFalse(last.exists && scroller.contains(last.frame), "\(bench): line 20 is in sight at once: the lines do not run past the sheet's foot")
+        XCTAssertLessThanOrEqual(scroller.maxY, app.frame.maxY + 0.5, "\(bench): the sheet's scroller runs below the screen")
+        let drags = app.scrollInside(more, until: last)
+        let whole = last.exists && more.frame.contains(last.frame)
+        XCTAssertTrue(whole, "\(bench): line 20 not whole inside lobby_sheet_more after \(drags) drags: "
+                      + (last.exists ? "at \(last.frame), the scroller at \(more.frame)" : "not in the tree"))
+        XCTAssertEqual(app.id("lobby_sheet").frame, sheet, "\(bench): the sheet moved while its lines were scrolled")
+        last.mustShow("Like Pocket Notebook · 20 of 20", "\(bench): the sheet's last line")
+        report(bench, "More like this: sheet at \(Self.describe(sheet)), its scroller at \(Self.describe(scroller)); "
+               + "line 20 \(lastAtOpen) at open, whole after \(drags) drag(s) inside the scroller")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "\(bench): More like this at line 20"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        last.tapWhenThere()
+        app.id("lobby_sheet").mustVanish("\(bench): a tap on a line did not close the sheet")
+        // the long press, then the line: the drags touched nothing
+        app.id("lobby_touch_log").mustContain("Tapped: Like Pocket Notebook · 20 of 20 (quick sheet, Pocket Notebook)", "\(bench): the line's tap; lobby_touch_log")
+        app.id("lobby_touch_count").mustShow("Touches: 2", "\(bench): touches after the long press and the line; lobby_touch_count")
+        XCTAssertEqual(app.id("lobby_top_row_position").label, topRow, "\(bench): the Top 10 row moved under the sheet")
+        XCTAssertFalse(app.id("lobby_detail").exists, "\(bench): a line opened something")
+    }
+
+    static func describe(_ frame: CGRect) -> String {
+        "\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))×\(Int(frame.height))"
     }
 
     // MARK: WebDriverAgent's gesture

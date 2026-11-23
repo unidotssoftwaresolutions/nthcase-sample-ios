@@ -21,6 +21,7 @@ struct LabView: View {
         Bench(id: TestIds.labGiftCards, route: .giftCards, title: "Gift cards", body: "No test ids at all: find things by their text"),
         Bench(id: TestIds.labLobby, route: .lobby, title: Lobby.title, body: Lobby.labLine),
         Bench(id: TestIds.labLobbyViews, route: .lobbyUIKit, title: Lobby.titleUIKit, body: Lobby.labLineUIKit),
+        Bench(id: TestIds.labFeed, route: .feed, title: Feed.title, body: Feed.labLine),
     ]
 
     var body: some View {

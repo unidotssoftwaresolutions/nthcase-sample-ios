@@ -287,7 +287,7 @@ final class NavigationTests: XCTestCase {
         XCTAssertEqual(Texts.notificationStatus(allowed: false, on: false), "Not allowed. Turn this on to be asked.")
         XCTAssertEqual(Texts.notificationStatus(allowed: true, on: false), "Off")
         XCTAssertEqual(Texts.notificationStatus(allowed: true, on: true), "On: we'll tell you when an order is placed.")
-        XCTAssertEqual(Texts.version("1.1.0"), "Mossgrove 1.1.0 · spec 1.1 · a sample app for NthCase")
+        XCTAssertEqual(Texts.version("1.2.0"), "Mossgrove 1.2.0 · spec 1.2 · a sample app for NthCase")
     }
 }
 

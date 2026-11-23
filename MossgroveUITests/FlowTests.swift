@@ -113,8 +113,10 @@ final class FlowTests: XCTestCase {
         app.signIn()
         app.openLab("lab_form")
         app.scrollTo(app.id("form_submit")).tapWhenThere()
+        // looked for until seen, not once: on the 1.2 round's simulator the first of these looks began 0.03 s after Join's
+        // tap and missed "Enter your name", while the three after it saw their lines
         for error in ["Enter your name", "Enter a valid email address", "Enter an age from 18 to 120", "Accept the terms to continue"] {
-            XCTAssertTrue(app.text(error).exists, "no \"\(error)\"")
+            app.text(error).mustAppear("the form after Join: \"\(error)\"")
         }
         app.scrollTo(app.id("form_name"), up: true).type("Sam Rivera")
         app.id("form_email").type("sam@example")
@@ -500,5 +502,47 @@ final class FlowTests: XCTestCase {
         edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
         app.id("lab_screen").mustAppear("lab_screen after the edge swipe")
         app.id("slow_screen").mustVanish("slow_screen after the edge swipe")
+    }
+
+    /// SPEC.md §5, the Feed (1.2): 20 rows at first; when the third row from the end shows, a spinner row after the last
+    /// row, which goes 1 s later, and 20 more rows in its place; and so on: three loads here, to row 61, and no end.
+    ///
+    /// Each load is brought by drags that stop a row short of the row that starts it, then one quick stroke to the
+    /// list's end (`bringFeedSpinner`), so the spinner row is in sight during its second and the look for it begins as
+    /// the stroke ends. The rows must come every time, and only after the list reached its end. The spinner row must be
+    /// seen in one load of the three: on the local simulator XCUITest took up to 1.8 s for one look, longer than the
+    /// spinner's second, so one look may come late, but three in a row only when the spinner never shows (seen in 3 of 3
+    /// on 2026-11-23). FeedViewTests proves the spinner's second inside the app, where the clock is the app's own.
+    func testTheFeedNeverEnds() {
+        app.signIn()
+        app.openLab("lab_feed")
+        app.id("feed_list").mustAppear("the Feed: feed_list")
+        app.id("feed_row_1").mustShow("Feed row 1", "the Feed's first row")
+        XCTAssertFalse(app.id("feed_loading").exists, "a spinner row before any scroll")
+        var seen = 0
+        for count in [20, 40, 60] {
+            XCTAssertFalse(app.id("feed_row_\(count + 1)").exists, "row \(count + 1) before the list reached row \(count - 2)")
+            let placed = app.bringFeedSpinner(count: count)
+            let spinner = app.id("feed_loading").appears(timeout: feedSpinnerLook)
+            let gone = spinner.met ? app.id("feed_loading").vanishes(timeout: looksTimeout) : nil
+            let next = app.id("feed_row_\(count + 1)")
+            next.mustShow("Feed row \(count + 1)", timeout: looksTimeout, "the 20 rows after row \(count)")
+            if spinner.met { seen += 1 }
+            let line = "load at \(count) rows: " + (placed ? "brought to the end by one quick stroke" : "the drags started it")
+                + "; spinner " + (spinner.met ? String(format: "seen %.1f s after the stroke", spinner.looks.last?.after ?? 0) : "not seen \(spinner.said)")
+                + (gone.map { $0.met ? String(format: ", gone %.1f s later", $0.looks.last?.after ?? 0) : ", still there \($0.said)" } ?? "")
+            print("FEED: \(line)")
+            XCTContext.runActivity(named: "FEED: \(line)") { _ in }
+            if let gone, !gone.met { XCTFail("the spinner row after row \(count) never went \(gone.said)") }
+        }
+        let found = "FEED: the spinner row seen in \(seen) of 3 loads"
+        print(found)
+        XCTContext.runActivity(named: found) { _ in }
+        XCTAssertGreaterThan(seen, 0, "the spinner row (feed_loading) was never seen in three loads")
+        XCTAssertFalse(app.text("End of the feed").exists, "the Feed has an end")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "the Feed after three loads"
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 }

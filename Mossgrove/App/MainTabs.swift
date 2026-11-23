@@ -64,6 +64,7 @@ struct MainTabs: View {
         case .giftCards: GiftCardsView()
         case .lobby: LobbyView()
         case .lobbyUIKit: LobbyUIKitScreen()
+        case .feed: FeedView()
         }
     }
 }

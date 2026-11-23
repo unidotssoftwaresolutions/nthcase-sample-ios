@@ -42,6 +42,14 @@ public enum Lobby {
     public static let barItems = ["Home", "Live", "Saved", "Offers"]
     public static let sheetButtons = ["Open", "Preview", "Saved", "Rate"]
 
+    /// The quick sheet's More like this (1.2): 20 lines in the sheet's own scroller, under its four buttons.
+    public static let sheetMoreLines = 20
+    public static let moreLikeThis = "More like this"
+    /// A line of More like this: "Like Bedside Lamp · 7 of 20", after the sheet's title.
+    public static func sheetMoreLine(title: String, _ n: Int) -> String { "Like \(title) · \(n) of \(sheetMoreLines)" }
+    /// A line is 48 points high, as the sheet's buttons are.
+    public static let sheetLineHeight = 48.0
+
     /// Tile `tile` of row `row` (both from 1) shows item ((row − 1) × 10 + tile − 1) mod 40 + 1.
     public static func tileItem(row: Int, tile: Int) -> Item {
         Catalog.items[((row - 1) * 10 + tile - 1) % Catalog.items.count]

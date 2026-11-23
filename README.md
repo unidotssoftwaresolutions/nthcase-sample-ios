@@ -6,9 +6,10 @@ Clone it, build it, and run your first NthCase test on it in minutes.
 
 It is one of five identical Mossgrove apps. The same screens, test ids, texts and scenarios are built in Kotlin +
 Jetpack Compose, SwiftUI (this one), Flutter, React Native and Ionic, all from one spec: [SPEC.md](SPEC.md),
-**spec 1.1**. Every verb NthCase supports has a place to land, and so do the hard cases real apps have: a slow screen,
-a failed load with retry, a web view, a system permission prompt, a modal, a screen with no test ids at all, and (new in
-1.1) **the Lobby**, a screen of many scrollers with a control that appears late.
+**spec 1.2**. Every verb NthCase supports has a place to land, and so do the hard cases real apps have: a slow screen,
+a failed load with retry, a web view, a system permission prompt, a modal, a screen with no test ids at all, (new in
+1.1) **the Lobby**, a screen of many scrollers with a control that appears late, and (new in 1.2) a quick sheet whose
+lines scroll inside it and **the Feed**, a list that never ends.
 
 - No network, no analytics, no ads, no tracking, no third-party code. Everything is seeded inside the app, so every
   run is the same.
@@ -26,7 +27,8 @@ a failed load with retry, a web view, a system permission prompt, a modal, a scr
 | <img src="docs/screenshots/light/22-settings.png" width="180" alt="Settings (UIKit)"> | <img src="docs/screenshots/light/23-settings-dialog.png" width="180" alt="UIKit alert"> | <img src="docs/screenshots/light/15-webview.png" width="180" alt="Care guide"> | <img src="docs/screenshots/light/24-deep-link-unknown.png" width="180" alt="Deep link, unknown id"> |
 
 All 24 screens of spec 1.0, light and dark, are in [docs/screenshots](docs/screenshots). The XCUITest suite takes them
-on a CI simulator. The Lobby's seven (25–31) are taken the same way, by the first device-suite run with 1.1.
+on a CI simulator. The Lobby's seven (25–31) and the Feed (32, spec 1.2) are taken the same way, by the device suite's
+`screenshots` artifact; 27 shows the quick sheet's More like this.
 
 ## Test account
 
@@ -47,7 +49,7 @@ silicon and Intel), with `SHA256SUMS` beside it. It runs on iOS 17 or later. Unz
 you name by its UDID (`xcrun simctl list devices` lists them):
 
 ```bash
-unzip mossgrove-ios-v1.1.0-simulator.zip
+unzip mossgrove-ios-v1.2.0-simulator.zip
 xcrun simctl install <udid> Mossgrove.app
 ```
 
@@ -68,12 +70,12 @@ xcodebuild build -project Mossgrove.xcodeproj -scheme Mossgrove -destination 'ge
 ```
 
 ```bash
-scripts/package-simulator-app.sh v1.1.0
+scripts/package-simulator-app.sh v1.2.0
 ```
 
 That builds Release for arm64 and x86_64, zips `Mossgrove.app` into `dist/`, writes `SHA256SUMS`, and checks the zip's
 bundle id, minimum iOS and URL scheme. A tag that starts with `v` must be the app's version (`MARKETING_VERSION`,
-1.1.0): `v1.0.0` stops before anything is written.
+1.2.0): `v1.1.0` stops before anything is written.
 
 ## Tests
 
@@ -117,10 +119,10 @@ xcodebuild test -project Mossgrove.xcodeproj -scheme Mossgrove -destination 'id=
 
 | Target | What it proves |
 | --- | --- |
-| `MossgroveTests` | the app's model, the UIKit screen's ids, the alert's button ids, the shake |
+| `MossgroveTests` | the app's model, the UIKit screen's ids, the alert's button ids, the shake; the Feed (1.2) laid out inside the app and timed by its own clock: a load when row 18 shows, its spinner row's second, then 20 more rows (`FeedViewTests`) |
 | `MossgroveUITests/IdWalkTests` | every screen in the state the spec names, with every id of `test-ids.json` in XCUITest's tree, which is the tree Appium reads; Gift cards has none; each `nav_*` id is the button a person taps (CI runs this one on an older iOS too, when the runner has one) |
-| `MossgroveUITests/FlowTests` | the flows of scenarios 01–11, typed as NthCase types (no Return unless the scenario says so); the deep link from a cold start, and to the running app signed in and signed out; a tab opens at its first screen; the edge swipe goes back |
-| `MossgroveUITests/LobbyTests` | both Lobbies: the scrollers' order in the tree with the pager on and off, the pager absent when off, Saved absent before its delay (and so NthCase's iOS reach finds nothing to scroll to), and the gesture that reach would make, injected across the Top 10 row and row 1; each finding is a `LOBBY:` line on the run's summary |
+| `MossgroveUITests/FlowTests` | the flows of scenarios 01–11, typed as NthCase types (no Return unless the scenario says so); the deep link from a cold start, and to the running app signed in and signed out; a tab opens at its first screen; the edge swipe goes back; the Feed (1.2) through three loads, its rows 20 at a time and its spinner row seen at the list's end |
+| `MossgroveUITests/LobbyTests` | both Lobbies: the scrollers' order in the tree with the pager on and off, the pager absent when off, Saved absent before its delay (and so NthCase's iOS reach finds nothing to scroll to), and the gesture that reach would make, injected across the Top 10 row and row 1; the quick sheet's More like this (1.2), scrolled inside the sheet to line 20 with the sheet and the Lobby still and nothing touched; each finding is a `LOBBY:` line on the run's summary |
 | `MossgroveUITests/ScreenshotTests` | every screen, light and dark |
 
 | | |
@@ -177,6 +179,8 @@ Mossgrove and run it on my iPhone simulator".
 | deep link | `nthcase-sample://item/7` | 11 |
 | scroll to an element, a pager, a board both ways | Lab › Lobby (1.1) | 12–15 |
 | a control that appears late, a scroll that must touch nothing | Lab › Lobby, Lab › Lobby (UIKit) (1.1) | 16–20 |
+| scroll inside a sheet, its lines past the sheet's foot (1.2) | Lab › Lobby, Lab › Lobby (UIKit): a tile's long press, then More like this | — |
+| scroll on a list that never ends, its spinner row 1 s between loads (1.2) | Lab › Feed | — |
 
 The full table, with every check type and the known gaps, is in [SPEC.md §8](SPEC.md#8-verb-coverage).
 
@@ -241,6 +245,7 @@ the page, outside it, so one of them is the first scroller in the tree. SPEC.md 
 | board | one `ScrollView([.horizontal, .vertical])` | a `UIScrollView` whose content is 1,456 points square in a 280-point frame |
 | bar | an `HStack` of buttons; Saved is left out of it | a `UIStackView` of buttons; Saved is removed from it |
 | quick sheet | `.sheet` at the medium detent | a view controller with `UISheetPresentationController` at the medium detent |
+| More like this (1.2) | a vertical `ScrollView` with a `LazyVStack` under the sheet's buttons, filling the rest of the detent | a `UITableView` under the sheet's buttons, pinned to the sheet's foot |
 | touches | `onTapGesture(count: 2)`, `onTapGesture`, `onLongPressGesture` | `UITapGestureRecognizer` (two taps), one that requires it to fail, `UILongPressGestureRecognizer` |
 
 **What a touch does with a moving finger.** The Lobby adds no rule of its own; these are the platform's:
@@ -255,6 +260,24 @@ the page, outside it, so one of them is the first scroller in the tree. SPEC.md 
 NthCase's iOS reach scrolls with WebDriverAgent's `mobile: scroll`, which presses for 0.5 s before it drags, the same
 time as the long press. `LobbyTests` makes that gesture across the Top 10 row and row 1, and the device suite's
 summary says what the tile under it did.
+
+## More like this and the Feed (spec 1.2)
+
+A long press on a tile or a banner opens the quick sheet at the medium detent. Under its four buttons, **More like
+this** (`lobby_sheet_more`) is the sheet's own scroller: 20 lines, "Like Bedside Lamp · 1 of 20" and on, that run past
+the sheet's foot and come only by scrolling inside it, while the Lobby under it stays where it is. A tap on a line is
+logged as a tap on a sheet button is, and closes the sheet.
+
+Lab › **Feed** (`feed_list`) is a SwiftUI `ScrollView` with a `LazyVStack` of rows, "Feed row 1" and on: 20 at first,
+and each time the third row from the end of what has come shows, a spinner row (`feed_loading`) after the last row for
+1 s, then 20 more. It never ends. Every row is the same height (56 points at the default text size), so the rows that
+show follow from the scroll offset. The Feed is built once, in SwiftUI.
+
+Two things the 1.2 round measured on the simulator, for anyone testing these with XCUITest: SwiftUI gives each Feed
+row's accessibility element a frame 38.4 points tall, centred in its 56-point row (rows 56 points apart), and the Feed's
+scroll view runs under the top bar, from the screen's top to its foot. And XCUITest can take longer than the spinner
+row's second to make one stroke or one look; `FlowTests` brings each load with drags that stop a row short of it and
+one quick stroke to the list's end, and `FeedViewTests` proves the second inside the app.
 
 ## Layout
 

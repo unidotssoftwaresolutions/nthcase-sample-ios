@@ -662,7 +662,9 @@ private struct PanelColumn<Content: View>: View {
     }
 }
 
-/// The quick sheet: SwiftUI's own sheet at the medium detent, a layer of its own over the Lobby.
+/// The quick sheet: SwiftUI's own sheet at the medium detent, a layer of its own over the Lobby. Its title and four
+/// buttons stay put; under them, More like this (1.2) is the sheet's own `ScrollView`, which fills the rest of the
+/// detent, so its 20 lines run past the sheet's foot and come only by scrolling inside it.
 private struct QuickSheet: View {
     let target: LobbySheetTarget
     let tapped: (String) -> Void
@@ -678,11 +680,23 @@ private struct QuickSheet: View {
             sheetButton("Preview", id: TestIds.lobbySheetPreview)
             sheetButton("Saved", id: TestIds.lobbySheetSaved)
             sheetButton("Rate", id: TestIds.lobbySheetRate)
-            Spacer(minLength: 0)
+            Text(Lobby.moreLikeThis)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color(Palette.primary))
+                .padding(.top, 8)
+                .accessibilityAddTraits(.isHeader)
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 0) {
+                    ForEach(1...Lobby.sheetMoreLines, id: \.self) { n in
+                        moreLine(n)
+                    }
+                }
+            }
+            .scrollingList(TestIds.lobbySheetMore)
         }
         .padding(.horizontal, 16)
         .padding(.top, 24)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .container(TestIds.lobbySheet)
     }
 
@@ -691,5 +705,23 @@ private struct QuickSheet: View {
             Text(label).font(.body).frame(maxWidth: .infinity, minHeight: 48, alignment: .leading).contentShape(Rectangle())
         }
         .accessibilityIdentifier(id)
+    }
+
+    /// A line of More like this: touched as a button is, so a tap is logged and closes the sheet.
+    private func moreLine(_ n: Int) -> some View {
+        let line = Lobby.sheetMoreLine(title: target.title, n)
+        return Button { tapped(line) } label: {
+            VStack(spacing: 0) {
+                Text(line)
+                    .font(.body)
+                    .foregroundStyle(Color(Palette.onSurface))
+                    .frame(maxWidth: .infinity, minHeight: Lobby.sheetLineHeight - 0.5, alignment: .leading)
+                Color(Palette.outlineVariant).frame(height: 0.5)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(line)
+        .accessibilityIdentifier(TestIds.lobbySheetMoreRow(n))
     }
 }

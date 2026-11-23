@@ -1,7 +1,7 @@
 {
- "spec": "1.1",
+ "spec": "1.2",
  "app": "Mossgrove",
- "about": "Every test id of the Mossgrove sample apps (SPEC.md §Test ids). One list for all five frameworks. {id} is an item number 1-40, {n} a slot (1-5), order, banner (1-5), chip (1-12), tile row (1-4), grid cell (1-12) or inner-list line (1-30) number, {m} a tile in its row (1-20; 1-10 in the Top 10 row), {s} a delay in seconds (0, 3, 6, 12, 20), {col}{row} a board cell (a-z, 1-26: lobby_board_cell_m18), {key} an aisle key (kitchen, desk, garden, home). The gift-cards screen has no ids by design. web_* ids live in the bundled HTML page, not in native views. lab_lobby_views exists only in apps that build the Lobby a second time in the platform's classic view toolkit (Android Views, iOS UIKit).",
+ "about": "Every test id of the Mossgrove sample apps (SPEC.md §Test ids). One list for all five frameworks. {id} is an item number 1-40, {n} a slot (1-5), order, banner (1-5), chip (1-12), tile row (1-4), grid cell (1-12), inner-list line (1-30), quick-sheet line (1-20) or feed row (1 and up: the Feed has no last row) number, {m} a tile in its row (1-20; 1-10 in the Top 10 row), {s} a delay in seconds (0, 3, 6, 12, 20), {col}{row} a board cell (a-z, 1-26: lobby_board_cell_m18), {key} an aisle key (kitchen, desk, garden, home). The gift-cards screen has no ids by design. web_* ids live in the bundled HTML page, not in native views. lab_lobby_views exists only in apps that build the Lobby a second time in the platform's classic view toolkit (Android Views, iOS UIKit).",
  "pattern": "^[a-z][a-z0-9_]*$",
  "ids": [
   {
@@ -401,6 +401,12 @@
    "when": "Android and iOS only"
   },
   {
+   "id": "lab_feed",
+   "screen": "lab",
+   "element": "Opens the Feed (1.2)",
+   "when": "shown"
+  },
+  {
    "id": "lobby_screen",
    "screen": "lobby",
    "element": "Screen root",
@@ -663,6 +669,42 @@
    "screen": "lobby",
    "element": "Quick sheet: Rate",
    "when": "quick sheet"
+  },
+  {
+   "id": "lobby_sheet_more",
+   "screen": "lobby",
+   "element": "Quick sheet: More like this, the sheet's own vertical scroller of 20 lines (1.2)",
+   "when": "quick sheet"
+  },
+  {
+   "id": "lobby_sheet_more_row_{n}",
+   "screen": "lobby",
+   "element": "Quick sheet: More like this, line 1-20, \"Like <title> · n of 20\" (1.2)",
+   "when": "scrolled into view in the sheet"
+  },
+  {
+   "id": "feed_screen",
+   "screen": "feed",
+   "element": "Screen root (1.2)",
+   "when": "shown"
+  },
+  {
+   "id": "feed_list",
+   "screen": "feed",
+   "element": "The list: 20 rows, then 20 more each time its third row from the end shows",
+   "when": "shown"
+  },
+  {
+   "id": "feed_row_{n}",
+   "screen": "feed",
+   "element": "Row n, \"Feed row n\", from 1, with no last row",
+   "when": "scrolled into view"
+  },
+  {
+   "id": "feed_loading",
+   "screen": "feed",
+   "element": "Spinner row after the last row, 1 s, while the next 20 rows come",
+   "when": "a load running, the list at its end"
   },
   {
    "id": "form_screen",

@@ -21,6 +21,8 @@ public enum Route: Hashable, Sendable {
     case form, gestures, careGuide, slow, orders, giftCards
     /// The Lobby (1.1): built with SwiftUI, and built again with UIKit.
     case lobby, lobbyUIKit
+    /// The Feed (1.2), a list that never ends.
+    case feed
 }
 
 /// The tabs and each tab's stack of screens.

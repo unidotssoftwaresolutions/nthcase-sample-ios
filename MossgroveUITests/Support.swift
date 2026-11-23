@@ -163,6 +163,25 @@ extension XCUIApplication {
         return element
     }
 
+    /// Scrolls inside `scroller` (1.2: the quick sheet's More like this) by drags along its own middle that do not fling,
+    /// from 80 % to 20 % of its height, until `element` is whole inside it, or the drags run out. Each drag is made from
+    /// the scroller's frame as it is then, so a sheet that moved is followed.
+    @discardableResult
+    func scrollInside(_ scroller: XCUIElement, until element: XCUIElement, up: Bool = false, tries: Int = 25) -> Int {
+        guard scroller.appears(timeout: looksTimeout).met else { return 0 }
+        var drags = 0
+        while drags < tries && !(element.exists && scroller.frame.contains(element.frame)) {
+            let frame = scroller.frame
+            let origin = coordinate(withNormalizedOffset: .zero)
+            let low = origin.withOffset(CGVector(dx: frame.midX, dy: frame.minY + frame.height * 0.8))
+            let high = origin.withOffset(CGVector(dx: frame.midX, dy: frame.minY + frame.height * 0.2))
+            let (from, to) = up ? (high, low) : (low, high)
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.2)
+            drags += 1
+        }
+        return drags
+    }
+
     /// A long press as NthCase makes one: the element is waited for, then pressed for a second.
     func longPressWhenThere(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
         guard element.mustAppear(timeout: 8, "could not long-press \(element.description)", file: file, line: line) else { return }
@@ -613,4 +632,98 @@ func allowNotificationsIfAsked() {
     let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     let allow = springboard.alerts.buttons["Allow"]
     if allow.appears(timeout: 8).met { allow.tap() }
+}
+
+// MARK: The Feed (1.2)
+
+/// How long a look for the Feed's spinner row goes on: the row lasts 1 s from the stroke that brings it.
+let feedSpinnerLook: TimeInterval = 3
+
+extension XCUIApplication {
+    /// Where the Feed stands, from one snapshot: the list's frame, the rows in the tree by number, and how far the list is
+    /// scrolled, read from its first row in the tree (row n's top sits n − 1 rows down the list).
+    ///
+    /// A row's height is the distance between two rows' centres, not a frame's height: the first local run read every
+    /// row's frame as 38.4 points tall, centred in a row that is 56 (its rows 56 points apart, and 168 pixels apart at 3x
+    /// in its screenshot). SwiftUI gives the row's accessibility element a frame shorter than the row; a row's top is its
+    /// centre less half a row. The list itself runs under the top bar, from the screen's top to its foot.
+    struct FeedPlace {
+        let list: CGRect
+        let rows: [Int: CGRect]
+        var rowHeight: CGFloat {
+            let numbers = rows.keys.sorted()
+            guard numbers.count >= 2, let a = rows[numbers[0]], let b = rows[numbers[1]] else { return rows.values.first?.height ?? 0 }
+            return (b.midY - a.midY) / CGFloat(numbers[1] - numbers[0])
+        }
+        var offset: CGFloat {
+            guard let first = rows.keys.min(), let frame = rows[first] else { return 0 }
+            return CGFloat(first - 1) * rowHeight - (frame.midY - rowHeight / 2 - list.minY)
+        }
+        var last: Int { rows.keys.max() ?? 0 }
+    }
+
+    func feedPlace() -> FeedPlace? {
+        guard let root = try? snapshot() else { return nil }
+        var list = CGRect.zero
+        var rows: [Int: CGRect] = [:]
+        func walk(_ node: XCUIElementSnapshot) {
+            let parts = node.identifier.split(separator: "_")
+            if parts.count == 2, parts[0] == "feed", parts[1] == "list" { list = node.frame }
+            if parts.count == 3, parts[0] == "feed", parts[1] == "row", let n = Int(parts[2]) { rows[n] = node.frame }
+            node.children.forEach(walk)
+        }
+        walk(root)
+        guard list.height > 0, !rows.isEmpty else { return nil }
+        return FeedPlace(list: list, rows: rows)
+    }
+
+    /// Brings the Feed's spinner row into sight while it lasts, when `count` rows have come. Drags that do not fling
+    /// take the list to within a row of showing row `count − 2`, whose showing starts the load; then one quick stroke
+    /// takes the list to its end, half the spinner row in sight, and lifts without a fling, so nothing is still moving
+    /// when the look for the spinner begins. The spinner row comes after the last row, out of sight, at the stroke's
+    /// start, and lasts 1 s: a slower scroll finds the next rows already there.
+    ///
+    /// Says false, and reports why, when it could not: the drags started the load themselves, or no row was in the tree.
+    @discardableResult
+    func bringFeedSpinner(count: Int, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let trigger = count - 2
+        for _ in 0..<40 {
+            guard let place = feedPlace() else {
+                Misses.report("no Feed row in the tree", file: file, line: line)
+                return false
+            }
+            // how far below the list's foot row `trigger`'s top is: above the foot, the row shows
+            let gap = CGFloat(trigger - 1) * place.rowHeight - place.offset - place.list.height
+            if gap <= 0 {
+                let first = place.rows.keys.min() ?? 0
+                Misses.report("row \(trigger) already showed before the quick stroke (\(Int(gap)) points): the drags started the load; "
+                              + "the list at \(place.list), rows \(first)–\(place.last) in the tree, row \(first) at \(place.rows[first] ?? .zero), "
+                              + "rows \(place.rowHeight) points, offset \(place.offset)", file: file, line: line)
+                return false
+            }
+            if gap <= place.rowHeight { break }
+            feedDrag(in: place.list, by: min(gap - place.rowHeight / 2, place.list.height * 0.6), quick: false)
+        }
+        guard let place = feedPlace() else { return false }
+        let end = CGFloat(count) * place.rowHeight + place.rowHeight / 2 - place.list.height
+        feedDrag(in: place.list, by: end - place.offset, quick: true)
+        return true
+    }
+
+    /// Moves the Feed's content up by about `distance` points: a press, a drag along the list's middle, a short hold,
+    /// a lift. The drag is 10 points longer than the move, for the distance a scroll view's pan takes to begin.
+    /// `quick`: 1,500 points a second, made through SpringBoard's coordinates (the touch lands on the app in front all
+    /// the same), so that XCUITest waits after it for SpringBoard to be idle, not the app, which is busy while its spinner
+    /// row turns: the look for the spinner begins as the stroke ends. Otherwise slow, and held still longer, so the list
+    /// does not fling on.
+    func feedDrag(in list: CGRect, by distance: CGFloat, quick: Bool) {
+        guard distance > 0 else { return }
+        let origin = (quick ? XCUIApplication(bundleIdentifier: "com.apple.springboard") : self).coordinate(withNormalizedOffset: .zero)
+        let fromY = list.minY + list.height * 0.85
+        let toY = max(list.minY + 8, fromY - distance - 10)
+        let from = origin.withOffset(CGVector(dx: list.midX, dy: fromY))
+        let to = origin.withOffset(CGVector(dx: list.midX, dy: toY))
+        from.press(forDuration: 0.05, thenDragTo: to, withVelocity: quick ? XCUIGestureVelocity(1500) : .slow,
+                   thenHoldForDuration: quick ? 0.05 : 0.2)
+    }
 }

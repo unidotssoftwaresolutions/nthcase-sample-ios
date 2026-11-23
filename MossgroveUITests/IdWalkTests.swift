@@ -11,7 +11,26 @@ final class IdWalkTests: XCTestCase {
         let ids: [String]
         /// A banner the step brings up, looked for right after `act` (see `Banner`).
         var banner: Banner? = nil
+        /// A spinner the step brings up for about a second, looked for right after `act` (see `Spinner`).
+        var spinner: Spinner? = nil
         let act: (XCUIApplication) -> Void
+    }
+
+    /// New in 1.2: the Feed's spinner row shows for 1 s, and only while the list is at its end, so the walk's own read of
+    /// the tree, after its look for the "Save Password?" card, would come too late for it. The step's action brings it
+    /// into sight (`bringFeedSpinner`), and the walk looks for its ids at once, one look after another, for
+    /// `feedSpinnerLook`; missed, `again` brings the next load's spinner, up to `attempts` in all. Those ids are checked by
+    /// that look alone: seen there, they were in the tree, the same tree the walk reads.
+    ///
+    /// Never seen is said, with every look, and kept with the step's screenshot and tree, but fails nothing: on the local
+    /// simulator XCUITest took 2.5 to 3.5 s to make one stroke and up to 1.8 s for one look, so on a slower runner a look
+    /// can come after the second has gone whatever the app does. FlowTests' testTheFeedNeverEnds requires the spinner row,
+    /// by this id, in one load of three; FeedViewTests proves its second inside the app; SourceCensusTests that its id is
+    /// on it. (Seen at the first try on 2026-11-23.)
+    struct Spinner {
+        let ids: [String]
+        var attempts = 1
+        var again: ((XCUIApplication, Int) -> Void)? = nil
     }
 
     /// A banner lasts 10 s (`AppModel.snackSeconds`), and the walk reads a screen only after its look for iOS's "Save
@@ -88,7 +107,7 @@ final class IdWalkTests: XCTestCase {
 
     static let labBenches: [Step] = [
         Step(name: "Lab", ids: ["lab_screen", "lab_form", "lab_gestures", "lab_webview", "lab_slow", "lab_orders", "lab_gift_cards",
-                                "top_bar_title"]) { app in
+                                "lab_feed", "top_bar_title"]) { app in
             app.signIn()
             app.openTab("nav_lab")
         },
@@ -145,6 +164,21 @@ final class IdWalkTests: XCTestCase {
         Step(name: "Orders, none", ids: ["orders_screen", "orders_empty", "orders_empty_action"]) { app in
             app.back()
             app.id("lab_orders").tapWhenThere()
+        },
+        // The Feed (1.2): its first rows, then its spinner row, which lasts 1 s at the list's end (see Spinner), then the
+        // 20 rows that come in its place.
+        Step(name: "Feed", ids: ["feed_screen", "feed_list", "feed_row_1", "top_bar_title", "top_bar_back"]) { app in
+            app.back()
+            app.id("lab_feed").tapWhenThere()
+        },
+        Step(name: "Feed, loading", ids: ["feed_list"],
+             spinner: Spinner(ids: ["feed_loading"], attempts: 3, again: { app, tries in app.bringFeedSpinner(count: 20 + 20 * tries) })) { app in
+            app.bringFeedSpinner(count: 20)
+        },
+        // the rows the first load brought, back up the list from wherever the loads left it
+        Step(name: "Feed, 20 more", ids: ["feed_row_21"]) { app in
+            _ = app.id("feed_loading").vanishes(timeout: looksTimeout)
+            app.scrollInside(app.id("feed_list"), until: app.id("feed_row_21"), up: true)
         },
     ]
 
@@ -212,9 +246,14 @@ final class IdWalkTests: XCTestCase {
                 app.id("lobby_banner_1").tapWhenThere()
             },
             Step(name: "Lobby (\(bench)), the quick sheet", ids: ["lobby_sheet", "lobby_sheet_title", "lobby_sheet_open",
-                                                                  "lobby_sheet_preview", "lobby_sheet_saved", "lobby_sheet_rate"]) { app in
+                                                                  "lobby_sheet_preview", "lobby_sheet_saved", "lobby_sheet_rate",
+                                                                  "lobby_sheet_more", "lobby_sheet_more_row_1"]) { app in
                 app.id("lobby_promo_back").tapWhenThere()
                 app.longPressWhenThere(app.id("lobby_top_row_tile_1"))
+            },
+            // 1.2: More like this is the sheet's own scroller, and its last line comes only by scrolling inside it
+            Step(name: "Lobby (\(bench)), the sheet's last line", ids: ["lobby_sheet_more_row_20"]) { app in
+                app.scrollInside(app.id("lobby_sheet_more"), until: app.id("lobby_sheet_more_row_20"))
             },
             Step(name: "Lobby (\(bench)), Saved", ids: ["lobby_saved_screen", "lobby_bar"]) { app in
                 app.id("lobby_sheet_rate").tapWhenThere()
@@ -321,7 +360,9 @@ final class IdWalkTests: XCTestCase {
 
     /// The walk names every native id of the list at least once (templates by one instance or more).
     func testTheWalkCoversEveryId() {
-        let walked = (Self.signedOut + Self.shopAndCart + Self.labBenches + Self.settingsAndStates + Self.lobby("lab_lobby")).flatMap(\.ids)
+        // AMENDED (1.2): a spinner's ids are checked by the step's look for its spinner
+        let walked = (Self.signedOut + Self.shopAndCart + Self.labBenches + Self.settingsAndStates + Self.lobby("lab_lobby"))
+            .flatMap { $0.ids + ($0.spinner?.ids ?? []) }
         let missing = SpecIds.shared.native.map(\.id).filter { entry in !walked.contains { SpecIds.matches($0, entry) } }
         XCTAssertEqual(missing, [], "ids the walk never checks")
         let unknown = walked.filter { id in !SpecIds.shared.native.contains { SpecIds.matches(id, $0.id) } }
@@ -349,9 +390,26 @@ final class IdWalkTests: XCTestCase {
                 // a banner first, before anything else spends its 10 s
                 let started = Date()
                 let banner = step.banner.map { app.looksForBanner(showing: $0.text) }
+                var spinner = step.spinner.map { app.looksForSpinner($0) }
+                var tries = spinner == nil ? 0 : 1
+                if let wanted = step.spinner, let again = wanted.again {
+                    while spinner?.met == false && tries < wanted.attempts {
+                        again(app, tries)
+                        spinner = app.looksForSpinner(wanted)
+                        tries += 1
+                    }
+                }
                 if let looks = banner, !looks.met {
                     problems.append("\(step.name): no banner after the action: snackbar_text never showed "
                                     + "\"\(step.banner?.text ?? "")\" with snackbar around it \(looks.said)")
+                }
+                if let looks = spinner {
+                    let ids = step.spinner?.ids.joined(separator: " ") ?? ""
+                    let said = looks.met
+                        ? "\(ids) seen " + String(format: "%.1f", looks.looks.last?.after ?? 0) + " s after the action that brought it (try \(tries))"
+                        : "\(ids) never seen in \(tries) tries, the last \(looks.said): a look that came after the spinner's second, not a missing id"
+                    print("WALK: \(step.name): \(said)")
+                    XCTContext.runActivity(named: said) { _ in }
                 }
                 let seenInTheBanner = banner?.met == true ? Set(Banner.ids) : []
                 app.answerSavePasswordCard()
@@ -385,7 +443,7 @@ final class IdWalkTests: XCTestCase {
                     + (outside.isEmpty ? "" : "; outside the list \(outside.joined(separator: " "))")
                     + (repeated.isEmpty ? "" : "; more than one element named \(repeated.joined(separator: " "))")
                 XCTContext.runActivity(named: found) { _ in }
-                let clean = missing.isEmpty && outside.isEmpty && couldNot.isEmpty && banner?.met != false
+                let clean = missing.isEmpty && outside.isEmpty && couldNot.isEmpty && banner?.met != false && spinner?.met != false
                 let shot = XCTAttachment(screenshot: app.screenshot())
                 shot.name = step.name
                 shot.lifetime = clean ? .deleteOnSuccess : .keepAlways
@@ -411,6 +469,15 @@ final class IdWalkTests: XCTestCase {
 }
 
 extension XCUIApplication {
+    /// Looks until every one of the spinner's ids is in the tree, for `feedSpinnerLook`; every look kept. A look is one
+    /// `exists` per id, not a snapshot, so each look is as short as XCUITest makes it.
+    func looksForSpinner(_ spinner: IdWalkTests.Spinner) -> Looks {
+        Looks.until(timeout: feedSpinnerLook) {
+            let missing = spinner.ids.filter { !id($0).exists }
+            return (missing.isEmpty ? XCUIElement.present : "not in the tree: " + missing.joined(separator: " "), missing.isEmpty)
+        }
+    }
+
     /// Looks until `snackbar_text` shows exactly `text` with `snackbar` in the tree, for `looksTimeout`; every look kept.
     func looksForBanner(showing text: String) -> Looks {
         let label = id("snackbar_text")
